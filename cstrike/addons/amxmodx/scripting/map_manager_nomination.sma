@@ -66,12 +66,14 @@ new g_szCurMap[32];
 enum Sections {
     UNUSED_SECTION,
     MAPLIST_COMMANDS,
-    NOMINATED_MAPS_COMMANDS
+    NOMINATED_MAPS_COMMANDS,
+    RECMAPS_COMMANDS
 }
 enum ParserData {
     Sections:SECTION,
     MAPLIST_COMMAND_FOUND,
-    NOMINATED_MAPS_COMMAND_FOUND
+    NOMINATED_MAPS_COMMAND_FOUND,
+    RECMAPS_COMMAND_FOUND
 };
 new parser_info[ParserData];
 
@@ -119,6 +121,8 @@ public ini_new_section(INIParser:handle, const section[], bool:invalid_tokens, b
         parser_info[SECTION] = MAPLIST_COMMANDS;
     } else if(equal(section, "nomination_nominated_maps_commands")) {
         parser_info[SECTION] = NOMINATED_MAPS_COMMANDS;
+    } else if(equal(section, "recent_maplist_commands")) {		
+	parser_info[SECTION] = RECMAPS_COMMANDS;
     } else {
         parser_info[SECTION] = UNUSED_SECTION;
     }
@@ -134,6 +138,10 @@ public ini_key_value(INIParser:handle, const key[], const value[], bool:invalid_
         case NOMINATED_MAPS_COMMANDS: {
             register_clcmd(fmt("say %s", key), "clcmd_nominated_maps");
             parser_info[NOMINATED_MAPS_COMMAND_FOUND] = true;
+        }
+	case RECMAPS_COMMANDS: {
+		register_clcmd(fmt("say %s", key), "clcmd_recmaps");
+		parser_info[RECMAPS_COMMAND_FOUND] = true;
         }
     }
     return true;
@@ -152,6 +160,10 @@ register_default_cmds()
     if(!parser_info[NOMINATED_MAPS_COMMAND_FOUND]) {
         register_clcmd("say nominations", "clcmd_nominated_maps");
         register_clcmd("say /nominations", "clcmd_nominated_maps");
+    }
+    if(!parser_info[RECMAPS_COMMAND_FOUND]) {
+        register_clcmd("say recentmaps", "clcmd_recmaps");
+	register_clcmd("say recent", "clcmd_recmaps");
     }
 }
 public plugin_natives()
@@ -274,6 +286,12 @@ nominate_map(id, map[])
         return NOMINATION_FAIL;
     }
 
+/*
+    if(get_num(TYPE) == TYPE_FIXED && ArraySize(g_aNomList) >= get_num(MAPS_IN_VOTE)) {
+        client_print_color(id, print_team_default, "%s^1 %L", g_sPrefix, id, "MAPM_NOM_CANT_NOM2");
+        return NOMINATION_FAIL;
+    }
+*/    
     new nom_info[NomStruct], name[32];
     get_user_name(id, name, charsmax(name));
     
@@ -298,7 +316,7 @@ nominate_map(id, map[])
         client_print_color(0, id, "%s^3 %L", g_sPrefix, LANG_PLAYER, "MAPM_NOM_REMOVE_NOM", name, map);
         return NOMINATION_REMOVED;
     }
-
+    
     if(get_num(TYPE) == TYPE_FIXED && ArraySize(g_aNomList) >= get_num(MAPS_IN_VOTE)) {
         client_print_color(id, print_team_default, "%s^1 %L", g_sPrefix, id, "MAPM_NOM_CANT_NOM2");
         return NOMINATION_FAIL;
@@ -395,18 +413,59 @@ public nomlist_handler(id, menu, item)
 }
 public clcmd_mapslist(id)
 {
-    if(is_one_map_mode()) {
-        return PLUGIN_HANDLED;
-    }
-
     if(get_num(SHOW_LISTS) && mapm_advl_get_active_lists() > 1) {
         show_lists_menu(id);
     } else {
         show_nomination_menu(id, g_aMapsList);
     }
-
-    return PLUGIN_CONTINUE;
 }
+public clcmd_recmaps(id)
+{
+	new szBuffer[240];
+	new size = ArraySize(g_aMapsList);
+	new map_info[MapStruct];
+	new iPos = 0;
+	
+	if (size > 0)
+{
+    new imaps = get_cvar_num("mapm_blocklist_ban_last_maps") + 1;
+    new Array:mapstrings = ArrayCreate(MAPNAME_LENGTH, imaps);
+    for(new i; i < imaps; i++) {
+    ArrayPushString(mapstrings, "");
+}
+    for(new i; i < size; i++) {
+    ArrayGetArray(g_aMapsList, i, map_info);
+    new block_count = mapm_get_blocked_count(map_info[Map]);
+    if (block_count > 0 && block_count < imaps)
+{	
+	ArraySetString(mapstrings, block_count, map_info[Map]);
+	}
+}
+    new skipfirst = true;
+    for(new i = imaps-1; i >= 0; i--) {
+    new szMap[MAPNAME_LENGTH];
+    ArrayGetString(mapstrings, i, szMap, charsmax(szMap));
+    if (strlen(szMap) > 0)
+    if (!skipfirst)
+    iPos += formatex( szBuffer[ iPos ] , charsmax( szBuffer ) - iPos , "%s, " , szMap); 
+    skipfirst = false;
+}	
+    if (iPos > 0)
+{
+    szBuffer[strlen(szBuffer)-2] = 0;
+    client_print_color(0, id, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_NOM_RECMAPS", szBuffer);
+} 
+    else
+    client_print_color(0, id, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_NOM_NORECMAPS");
+    ArrayDestroy(mapstrings);
+} 
+	else
+{
+    client_print_color(0, id, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_NOM_NORECMAPS");
+    return;
+}
+    return PLUGIN_CONTINUE;
+}	
 show_lists_menu(id)
 {
     new text[64];
@@ -558,7 +617,7 @@ public clcmd_nominated_maps(id)
     client_print_color(id, print_team_default, "%s ^1%L", g_sPrefix, id, "MAPM_NOM_NOMINATED_LIST");
 
     new nom_info[NomStruct];
-    new nominated_list[192], len, map_len;
+    new nominated_list[240], len, map_len;
 
     for(new i; i < size; i++) {
         ArrayGetArray(g_aNomList, i, nom_info);
