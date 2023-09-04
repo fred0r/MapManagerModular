@@ -413,6 +413,10 @@ public nomlist_handler(id, menu, item)
 }
 public clcmd_mapslist(id)
 {
+    if(is_one_map_mode()) {
+        return PLUGIN_HANDLED;
+    }
+
     if(get_num(SHOW_LISTS) && mapm_advl_get_active_lists() > 1) {
         show_lists_menu(id);
     } else {
