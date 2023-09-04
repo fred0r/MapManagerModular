@@ -468,7 +468,7 @@ public clcmd_recmaps(id)
     client_print_color(0, id, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_NOM_NORECMAPS");
     return;
 }
-    return PLUGIN_CONTINUE;
+//    return PLUGIN_CONTINUE;
 }	
 show_lists_menu(id)
 {
