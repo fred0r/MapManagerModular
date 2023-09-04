@@ -422,6 +422,8 @@ public clcmd_mapslist(id)
     } else {
         show_nomination_menu(id, g_aMapsList);
     }
+
+    return PLUGIN_CONTINUE;
 }
 public clcmd_recmaps(id)
 {
