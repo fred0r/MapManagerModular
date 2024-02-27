@@ -106,8 +106,3 @@ enum {
 enum MCustomItem {
     Invalid_Custom_Item = -1
 };
-
-enum MCI_Type {
-    mci_before,
-    mci_after
-}
