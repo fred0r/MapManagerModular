@@ -9,7 +9,7 @@
 #endif
 
 #define PLUGIN "Map Manager: Scheduler"
-#define VERSION "0.2.3"
+#define VERSION "0.2.4"
 #define AUTHOR "Mistrick"
 
 #pragma semicolon 1
@@ -36,6 +36,10 @@ enum {
     CHANGE_AFTER_VOTE,
     CHANGE_NEXT_ROUND,
     CHANGE_MAP_END
+};
+
+enum Forwards {
+    MAP_EXTENDED
 };
 
 enum Cvars {
@@ -65,6 +69,7 @@ enum Cvars {
 };
 
 new g_pCvars[Cvars];
+new g_hForwards[Forwards];
 
 new bool:g_bVoteInNewRound;
 new g_iTeamScore[2];
@@ -113,8 +118,9 @@ public plugin_init()
     g_pCvars[FRAGLIMIT] = get_cvar_pointer("mp_fraglimit");
     g_pCvars[FRAGSLEFT] = get_cvar_pointer("mp_fragsleft");
 
-
     g_pCvars[NEXTMAP] = register_cvar("amx_nextmap", "", FCVAR_SERVER|FCVAR_EXTDLL|FCVAR_SPONLY);
+
+    g_hForwards[MAP_EXTENDED] = CreateMultiForward("mapm_scheduler_map_extended", ET_IGNORE, FP_CELL, FP_CELL);
 
     register_concmd("mapm_start_vote", "concmd_startvote", ADMIN_MAP);
     register_concmd("mapm_stop_vote", "concmd_stopvote", ADMIN_MAP);
@@ -608,6 +614,10 @@ public mapm_vote_finished(const map[], type, total_votes)
         mapm_set_vote_finished(false);
 
         log_amx("[vote_finished]: map extended[%d].", g_iExtendedNum);
+
+        new ret;
+        ExecuteForward(g_hForwards[MAP_EXTENDED], ret, type, g_iExtendedNum);
+
         return 0;
     }
 

@@ -86,3 +86,13 @@ native LastRoundState:get_last_round_state();
  * @return                      true/false
  */
 native bool:is_one_map_mode();
+
+/**
+ * Called after map extended
+ *
+ * @param type                  Type of vote, used const VOTE_BY_*
+ * @param extended              Current number of extended
+ *
+ * @noreturn
+ */
+forward mapm_scheduler_map_extended(type, extended);
