@@ -9,7 +9,7 @@
 #endif
 
 #define PLUGIN "Map Manager: Nomination"
-#define VERSION "0.3.7-1"
+#define VERSION "0.3.8"
 #define AUTHOR "Mistrick"
 
 #pragma semicolon 1
@@ -42,6 +42,7 @@ enum Cvars {
     RANDOM_SORT,
     REMOVE_MAPS,
     SHOW_LISTS,
+    RETURN_TO_LIST,
     FAST_NOMINATION
 };
 
@@ -59,6 +60,7 @@ new g_hCallbackDisabled;
 new g_iNomMaps[33];
 new g_iLastDenominate[33];
 new bool:g_bIgnoreVote = false;
+new bool:g_bReturnToList[33];
 
 new g_sPrefix[48];
 new g_szCurMap[32];
@@ -87,6 +89,7 @@ public plugin_init()
     g_pCvars[RANDOM_SORT] = register_cvar("mapm_nom_random_sort", "0"); // 0 - disable, 1 - enable
     g_pCvars[REMOVE_MAPS] = register_cvar("mapm_nom_remove_maps", "1"); // 0 - disable, 1 - enable
     g_pCvars[SHOW_LISTS] = register_cvar("mapm_nom_show_lists", "0"); // 0 - disable, 1 - enable
+    g_pCvars[RETURN_TO_LIST] = register_cvar("mapm_nom_return_to_list", "1"); // 0 - disable, 1 - enable
     g_pCvars[FAST_NOMINATION] = register_cvar("mapm_nom_fast_nomination", "1"); // 0 - disable, 1 - enable
 
     g_hForwards[CAN_BE_NOMINATED] = CreateMultiForward("mapm_can_be_nominated", ET_CONTINUE, FP_CELL, FP_STRING);
@@ -402,6 +405,7 @@ public clcmd_mapslist(id)
     }
 
     if(get_num(SHOW_LISTS) && mapm_advl_get_active_lists() > 1) {
+        g_bReturnToList[id] = false;
         show_lists_menu(id);
     } else {
         show_nomination_menu(id, g_aMapsList);
@@ -447,6 +451,9 @@ public lists_handler(id, menu, item)
     new list_name[32];
     mapm_advl_get_list_name(item, list_name, charsmax(list_name));
     new Array:maplist = mapm_advl_get_list_array(item);
+
+    g_bReturnToList[id] = true;
+
     show_nomination_menu(id, maplist, list_name);
 
     return PLUGIN_HANDLED;
@@ -524,6 +531,12 @@ public mapslist_handler(id, menu, item)
 {
     if(item == MENU_EXIT) {
         menu_destroy(menu);
+        
+        if(g_bReturnToList[id] && get_num(RETURN_TO_LIST)) {
+            g_bReturnToList[id] = false;
+            show_lists_menu(id);
+        }
+
         return PLUGIN_HANDLED;
     }
     
