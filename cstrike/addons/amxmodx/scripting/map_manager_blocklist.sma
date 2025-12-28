@@ -2,7 +2,7 @@
 #include <map_manager>
 
 #define PLUGIN "Map Manager: BlockList"
-#define VERSION "0.0.6"
+#define VERSION "0.0.7"
 #define AUTHOR "Mistrick"
 
 #pragma semicolon 1
@@ -10,7 +10,13 @@
 #define get_num(%0) get_pcvar_num(g_pCvars[%0])
 
 enum Cvars {
+    BLOCK_MODE,
     BAN_LAST_MAPS
+};
+
+enum {
+    BLOCK_BY_NAME,
+    BLOCK_BY_PREFIX
 };
 
 new g_pCvars[Cvars];
@@ -18,6 +24,7 @@ new g_pCvars[Cvars];
 new const FILE_BLOCKED_MAPS[] = "blockedmaps.ini"; //datadir
 
 new Trie:g_tBlockedList;
+new Trie:g_tBlockedPrefix;
 new g_iMaxItems;
 new bool:g_bNeedCheck;
 
@@ -25,6 +32,7 @@ public plugin_init()
 {
     register_plugin(PLUGIN, VERSION + VERSION_HASH, AUTHOR);
 
+    g_pCvars[BLOCK_MODE] = register_cvar("mapm_blocklist_mode", "0");
     g_pCvars[BAN_LAST_MAPS] = register_cvar("mapm_blocklist_ban_last_maps", "10");
 }
 public plugin_natives()
@@ -44,11 +52,22 @@ public native_get_blocked_count(plugin, params)
     get_string(arg_map, map, charsmax(map));
     strtolower(map);
 
-    if(!TrieKeyExists(g_tBlockedList, map)) {
-        return 0;
-    }
+    new count;
 
-    new count; TrieGetCell(g_tBlockedList, map, count);
+    if(get_num(BLOCK_MODE) == BLOCK_BY_PREFIX) {
+        new prefix[MAPNAME_LENGTH];
+        get_map_prefix(map, prefix, charsmax(prefix));
+
+        if(!TrieKeyExists(g_tBlockedPrefix, prefix)) {
+            return 0;
+        }
+        TrieGetCell(g_tBlockedPrefix, prefix, count);
+    } else {
+        if(!TrieKeyExists(g_tBlockedList, map)) {
+            return 0;
+        }
+        TrieGetCell(g_tBlockedList, map, count);
+    }
 
     return count;
 }
@@ -56,24 +75,39 @@ public mapm_maplist_loaded(Array:mapslist)
 {
     if(!g_tBlockedList) {
         g_tBlockedList = TrieCreate();
+        g_tBlockedPrefix = TrieCreate();
         load_blocklist();
     }
 
     new map_info[MapStruct], blocked, size = ArraySize(mapslist);
+    new mode = get_num(BLOCK_MODE) == BLOCK_BY_PREFIX;
+    new map[MAPNAME_LENGTH], prefix[MAPNAME_LENGTH];
+
     for(new i; i < size; i++) {
         ArrayGetArray(mapslist, i, map_info);
-        if(TrieKeyExists(g_tBlockedList, map_info[Map])) {
-            blocked++;
+        copy(map, charsmax(map), map_info[Map]);
+        strtolower(map);
+
+        if(mode) {
+            get_map_prefix(map, prefix, charsmax(prefix));
+            if(TrieKeyExists(g_tBlockedPrefix, prefix)) {
+                blocked++;
+            }
+        } else {
+            if(TrieKeyExists(g_tBlockedList, map)) {
+                blocked++;
+            }
         }
     }
 
     new votelist_size = min(mapm_get_votelist_size(), size);
-    new valid_maps = size - blocked;
+    new valid_maps = votelist_size - blocked;
 
     g_iMaxItems = 0;
 
     if(valid_maps <= 0) {
         TrieClear(g_tBlockedList);
+        TrieClear(g_tBlockedPrefix);
         log_amx("Blocklist cleared. More blocked maps than available.");
     }
     else if(valid_maps < votelist_size) {
@@ -97,7 +131,7 @@ load_blocklist()
         f = fopen(file_path, "rt");
         temp = fopen(temp_file_path, "wt");
 
-        new buffer[40], map[MAPNAME_LENGTH], str_count[6], count;
+        new buffer[40], map[MAPNAME_LENGTH], prefix[MAPNAME_LENGTH], str_count[6], count;
         
         while(!feof(f)) {
             fgets(f, buffer, charsmax(buffer));
@@ -113,6 +147,9 @@ load_blocklist()
             fprintf(temp, "^"%s^" ^"%d^"^n", map, count);
             strtolower(map);
             TrieSetCell(g_tBlockedList, map, count);
+
+            get_map_prefix(map, prefix, charsmax(prefix));
+            TrieSetCell(g_tBlockedPrefix, prefix, count);
         }
         
         fprintf(temp, "^"%s^" ^"%d^"^n", cur_map, block_value);
@@ -148,5 +185,13 @@ public mapm_can_be_in_votelist(const map[])
     new lower[MAPNAME_LENGTH];
     copy(lower, charsmax(lower), map);
     strtolower(lower);
-    return TrieKeyExists(g_tBlockedList, lower) ? MAP_BLOCKED : MAP_ALLOWED;
+
+    if(get_num(BLOCK_MODE) == BLOCK_BY_PREFIX) {
+        new prefix[MAPNAME_LENGTH];
+        get_map_prefix(lower, prefix, charsmax(prefix));
+        return TrieKeyExists(g_tBlockedPrefix, prefix) ? MAP_BLOCKED : MAP_ALLOWED;
+    }
+    else {
+        return TrieKeyExists(g_tBlockedList, lower) ? MAP_BLOCKED : MAP_ALLOWED;
+    }
 }
