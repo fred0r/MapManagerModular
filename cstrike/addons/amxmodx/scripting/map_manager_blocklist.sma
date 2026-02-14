@@ -2,7 +2,7 @@
 #include <map_manager>
 
 #define PLUGIN "Map Manager: BlockList"
-#define VERSION "0.0.7"
+#define VERSION "0.0.8"
 #define AUTHOR "Mistrick"
 
 #pragma semicolon 1
@@ -101,7 +101,7 @@ public mapm_maplist_loaded(Array:mapslist)
     }
 
     new votelist_size = min(mapm_get_votelist_size(), size);
-    new valid_maps = votelist_size - blocked;
+    new valid_maps = size - blocked;
 
     g_iMaxItems = 0;
 
