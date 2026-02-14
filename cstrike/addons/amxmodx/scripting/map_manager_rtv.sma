@@ -7,7 +7,7 @@
 #endif
 
 #define PLUGIN "Map Manager: Rtv"
-#define VERSION "0.1.5"
+#define VERSION "0.1.6"
 #define AUTHOR "Mistrick"
 
 #pragma semicolon 1
@@ -33,6 +33,11 @@ enum Cvars {
 enum {
     MODE_PERCENTS,
     MODE_PLAYERS
+};
+
+enum {
+    IGNORE_SPECTATORS_COUNT = 1,
+    IGNORE_SPECTATORS_FULL
 };
 
 new g_pCvars[Cvars];
@@ -104,11 +109,33 @@ public clcmd_rtv(id)
         g_iVotes++;
     }
 
+    new current_votes = 0;
+
+    new ignore_spec = get_num(IGNORE_SPECTATORS);
+    if(ignore_spec == IGNORE_SPECTATORS_FULL) {
+        new team;
+        for(new i = 1; i < sizeof(g_bVoted); i++) {
+            if(!g_bVoted[i] || !is_user_connected(i)) 
+                continue;
+            
+            team = get_user_team(i);
+            if(team == 1 || team == 2) {
+                current_votes++;
+            }
+        }
+        team = get_user_team(id);
+        if(!g_bVoted[id] && (team == 1 || team == 2)) {
+            current_votes++;
+        }
+    } else {
+        current_votes = g_iVotes;
+    }
+
     new need_votes;
     if(get_num(MODE) == MODE_PERCENTS) {
-        need_votes = floatround(get_players_num(get_num(IGNORE_SPECTATORS) ? -1 : 0) * get_num(PERCENT) / 100.0, floatround_ceil) - g_iVotes;
+        need_votes = floatround(get_players_num(ignore_spec ? -1 : 0) * get_num(PERCENT) / 100.0, floatround_ceil) - current_votes;
     } else {
-        need_votes = min(get_num(PLAYERS), get_players_num(get_num(IGNORE_SPECTATORS) ? -1 : 0)) - g_iVotes;
+        need_votes = min(get_num(PLAYERS), get_players_num(ignore_spec ? -1 : 0)) - current_votes;
     }
 
     if(need_votes <= 0) {
