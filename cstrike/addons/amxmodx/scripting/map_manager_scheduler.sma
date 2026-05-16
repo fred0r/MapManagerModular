@@ -559,6 +559,7 @@ planning_vote(type)
 }
 public mapm_maplist_loaded(Array:maplist, const nextmap[])
 {
+    g_eLastRoundState = LRS_Not;
     g_bMapChangeScheduled = false;
 
     if(!g_eLastRoundState) {
