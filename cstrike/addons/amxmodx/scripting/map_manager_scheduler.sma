@@ -153,19 +153,26 @@ get_real_playersnum()
 
 sync_nextmap_from_mapcycle()
 {
-    new configdir[256], path[256];
-    get_configsdir(configdir, charsmax(configdir));
+    new dir[256], path[256];
+    get_configsdir(dir, charsmax(dir));
 
-    new pos = strlen(configdir);
-    for(new slashes; pos > 0 && slashes < 3; pos--) {
-        if(configdir[pos] == '/') {
-            slashes++;
+    new len = strlen(dir);
+    for(new tries; tries < 4; tries++) {
+        while(len > 0 && dir[len - 1] != '/') {
+            len--;
         }
+        if(len > 0) {
+            dir[--len] = 0;
+        }
+        format(path, charsmax(path), "%s/mapcycle.txt", dir);
+        if(file_exists(path)) {
+            break;
+        }
+        path[0] = 0;
     }
-    configdir[pos + 1] = 0;
-    format(path, charsmax(path), "%smapcycle.txt", configdir);
 
-    if(!file_exists(path)) {
+    if(!path[0]) {
+        log_amx("[sync_nextmap]: mapcycle.txt not found from %s", dir);
         return;
     }
 
