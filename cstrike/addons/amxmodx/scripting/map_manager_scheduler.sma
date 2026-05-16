@@ -86,6 +86,7 @@ new bool:g_bOneMapMode;
 
 new g_sPrefix[32];
 new g_sCurMap[MAPNAME_LENGTH];
+new bool:g_bVoteHappened;
 
 public plugin_init()
 {
@@ -380,13 +381,19 @@ public client_putinserver(id)
 {
     if(!is_user_bot(id) && !is_user_hltv(id)) {
         remove_task(TASK_CHANGE_TO_DEFAULT);
+        if(!g_bVoteHappened) {
+            set_pcvar_string(g_pCvars[NEXTMAP], "[not yet voted on]");
+        }
     }
 }
 public client_disconnected(id)
 {
-    new Float:change_time = get_float(CHANGE_TO_DEFAULT);
-    if(change_time > 0.0 && !get_real_playersnum()) {
-        set_task(change_time * 60, "task_change_to_default", TASK_CHANGE_TO_DEFAULT);
+    if(!get_real_playersnum()) {
+        new Float:change_time = get_float(CHANGE_TO_DEFAULT);
+        if(change_time > 0.0) {
+            set_task(change_time * 60, "task_change_to_default", TASK_CHANGE_TO_DEFAULT);
+        }
+        sync_nextmap_from_mapcycle();
     }
 }
 public task_change_to_default()
@@ -539,11 +546,13 @@ planning_vote(type)
 }
 public mapm_maplist_loaded(Array:maplist, const nextmap[])
 {
+    g_bVoteHappened = false;
+
     if(!g_eLastRoundState) {
         if(get_real_playersnum() == 0) {
             sync_nextmap_from_mapcycle();
         } else {
-            set_pcvar_string(g_pCvars[NEXTMAP], nextmap);
+            set_pcvar_string(g_pCvars[NEXTMAP], "[not yet voted on]");
         }
     }
 
@@ -700,6 +709,7 @@ public mapm_vote_finished(const map[], type, total_votes)
     }
 
     set_pcvar_string(g_pCvars[NEXTMAP], map);
+    g_bVoteHappened = true;
 
     log_amx("[vote_finished]: nextmap is %s.", map);
 
