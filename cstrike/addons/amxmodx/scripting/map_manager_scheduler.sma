@@ -157,22 +157,28 @@ sync_nextmap_from_mapcycle()
     get_configsdir(dir, charsmax(dir));
 
     new len = strlen(dir);
-    for(new tries; tries < 4; tries++) {
+    if(len > 0 && dir[len - 1] == '/') {
+        dir[--len] = 0;
+    }
+
+    path[0] = 0;
+
+    while(len > 0) {
+        format(path, charsmax(path), "%s/mapcycle.txt", dir);
+        if(file_exists(path)) {
+            break;
+        }
+        path[0] = 0;
         while(len > 0 && dir[len - 1] != '/') {
             len--;
         }
         if(len > 0) {
             dir[--len] = 0;
         }
-        format(path, charsmax(path), "%s/mapcycle.txt", dir);
-        if(file_exists(path)) {
-            break;
-        }
-        path[0] = 0;
     }
 
     if(!path[0]) {
-        log_amx("[sync_nextmap]: mapcycle.txt not found from %s", dir);
+        log_amx("[sync_nextmap]: mapcycle.txt not found");
         return;
     }
 
