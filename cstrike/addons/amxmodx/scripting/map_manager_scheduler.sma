@@ -149,6 +149,64 @@ get_real_playersnum()
     get_players(players, num, "ch");
     return num;
 }
+
+sync_nextmap_from_mapcycle()
+{
+    new configdir[256], path[256];
+    get_configsdir(configdir, charsmax(configdir));
+
+    new pos = strlen(configdir);
+    for(new slashes; pos > 0 && slashes < 3; pos--) {
+        if(configdir[pos] == '/') {
+            slashes++;
+        }
+    }
+    configdir[pos + 1] = 0;
+    format(path, charsmax(path), "%smapcycle.txt", configdir);
+
+    if(!file_exists(path)) {
+        return;
+    }
+
+    new f = fopen(path, "rt");
+    if(!f) {
+        return;
+    }
+
+    new line[MAPNAME_LENGTH], nextmap[MAPNAME_LENGTH], bool:found_current;
+
+    while(!feof(f)) {
+        fgets(f, line, charsmax(line));
+        trim(line);
+
+        if(!line[0] || line[0] == ';' || (line[0] == '/' && line[1] == '/')) {
+            continue;
+        }
+
+        if(!nextmap[0]) {
+            copy(nextmap, charsmax(nextmap), line);
+        }
+
+        if(equali(line, g_sCurMap)) {
+            found_current = true;
+            nextmap[0] = 0;
+            continue;
+        }
+
+        if(found_current) {
+            copy(nextmap, charsmax(nextmap), line);
+            break;
+        }
+    }
+
+    fclose(f);
+
+    if(nextmap[0] && is_map_valid(nextmap)) {
+        set_pcvar_string(g_pCvars[NEXTMAP], nextmap);
+        log_amx("[sync_nextmap]: mapcycle.txt nextmap set to %s", nextmap);
+    }
+}
+
 public plugin_natives()
 {
     register_library("map_manager_scheduler");
@@ -368,6 +426,8 @@ public task_checktime()
         log_amx("[checktime]: start vote, timeleft %d", timeleft);
         
         planning_vote(VOTE_BY_SCHEDULER);
+    } else if(timeleft <= floatround(time_to_vote * 60.0)) {
+        sync_nextmap_from_mapcycle();
     }
     
     return 0;
@@ -480,7 +540,11 @@ planning_vote(type)
 public mapm_maplist_loaded(Array:maplist, const nextmap[])
 {
     if(!g_eLastRoundState) {
-        set_pcvar_string(g_pCvars[NEXTMAP], nextmap);
+        if(get_real_playersnum() == 0) {
+            sync_nextmap_from_mapcycle();
+        } else {
+            set_pcvar_string(g_pCvars[NEXTMAP], nextmap);
+        }
     }
 
     if(ArraySize(maplist) == 1) {
