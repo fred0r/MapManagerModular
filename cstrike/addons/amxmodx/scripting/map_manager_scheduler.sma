@@ -142,6 +142,13 @@ public plugin_cfg()
     get_mapname(g_sCurMap, charsmax(g_sCurMap));
     mapm_get_prefix(g_sPrefix, charsmax(g_sPrefix));
 }
+
+get_real_playersnum()
+{
+    new players[32], num;
+    get_players(players, num, "ch");
+    return num;
+}
 public plugin_natives()
 {
     register_library("map_manager_scheduler");
@@ -320,13 +327,13 @@ public client_putinserver(id)
 public client_disconnected(id)
 {
     new Float:change_time = get_float(CHANGE_TO_DEFAULT);
-    if(change_time > 0.0 && !get_players_num(id)) {
+    if(change_time > 0.0 && !get_real_playersnum()) {
         set_task(change_time * 60, "task_change_to_default", TASK_CHANGE_TO_DEFAULT);
     }
 }
 public task_change_to_default()
 {
-    if(get_players_num()) {
+    if(get_real_playersnum()) {
         return;
     }
 
@@ -357,7 +364,7 @@ public task_checktime()
     new Float:time_to_vote = get_float(TIMELEFT_TO_VOTE);
     
     new timeleft = get_timeleft();
-    if(timeleft <= floatround(time_to_vote * 60.0) && get_players_num()) {
+    if(timeleft <= floatround(time_to_vote * 60.0) && get_real_playersnum()) {
         log_amx("[checktime]: start vote, timeleft %d", timeleft);
         
         planning_vote(VOTE_BY_SCHEDULER);
@@ -516,7 +523,7 @@ public mapm_analysis_of_results(type, total_votes)
         return ALLOW_VOTE;
     }
 
-    if(get_players_num() == 0) {
+    if(get_real_playersnum() == 0) {
         return ALLOW_VOTE;
     }
 
