@@ -156,8 +156,6 @@ sync_nextmap_from_mapcycle()
     new dir[256], path[256];
     get_configsdir(dir, charsmax(dir));
 
-    log_amx("[sync_nextmap]: searching from configs dir: %s", dir);
-
     new len = strlen(dir);
     if(len > 0 && dir[len - 1] == '/') {
         dir[--len] = 0;
@@ -168,7 +166,6 @@ sync_nextmap_from_mapcycle()
     while(len > 0) {
         format(path, charsmax(path), "%s/mapcycle.txt", dir);
         if(file_exists(path)) {
-            log_amx("[sync_nextmap]: found at %s", path);
             break;
         }
         path[0] = 0;
@@ -181,7 +178,6 @@ sync_nextmap_from_mapcycle()
     }
 
     if(!path[0]) {
-        log_amx("[sync_nextmap]: mapcycle.txt not found in any parent dir");
         return;
     }
 
