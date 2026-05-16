@@ -86,7 +86,7 @@ new bool:g_bOneMapMode;
 
 new g_sPrefix[32];
 new g_sCurMap[MAPNAME_LENGTH];
-new bool:g_bVoteHappened;
+new bool:g_bMapChangeScheduled;
 
 public plugin_init()
 {
@@ -388,7 +388,7 @@ public client_putinserver(id)
 {
     if(!is_user_bot(id) && !is_user_hltv(id)) {
         remove_task(TASK_CHANGE_TO_DEFAULT);
-        if(!g_bVoteHappened) {
+        if(!g_bMapChangeScheduled) {
             set_pcvar_string(g_pCvars[NEXTMAP], "[not yet voted on]");
         }
     }
@@ -417,6 +417,7 @@ public task_change_to_default()
 
     log_amx("map changed to default[%s]", default_map);
     set_pcvar_string(g_pCvars[NEXTMAP], default_map);
+    g_bMapChangeScheduled = true;
     intermission();
 }
 public task_checktime()
@@ -520,6 +521,11 @@ public event_restart()
 */
 public event_intermission()
 {
+    if(!g_bMapChangeScheduled) {
+        return;
+    }
+    g_bMapChangeScheduled = false;
+
     if(task_exists(TASK_DELAYED_CHANGE)) {
         log_amx("double intermission, how?");
         return;
@@ -553,7 +559,7 @@ planning_vote(type)
 }
 public mapm_maplist_loaded(Array:maplist, const nextmap[])
 {
-    g_bVoteHappened = false;
+    g_bMapChangeScheduled = false;
 
     if(!g_eLastRoundState) {
         if(get_real_playersnum() == 0) {
@@ -716,7 +722,7 @@ public mapm_vote_finished(const map[], type, total_votes)
     }
 
     set_pcvar_string(g_pCvars[NEXTMAP], map);
-    g_bVoteHappened = true;
+    g_bMapChangeScheduled = true;
 
     log_amx("[vote_finished]: nextmap is %s.", map);
 
