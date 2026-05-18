@@ -691,9 +691,11 @@ public clcmd_nominated_maps(id)
         ArrayGetArray(g_aNomList, i, nom_info);
         map_len = strlen(nom_info[NomMap]);
 
-        if(len + map_len > 100) {
+        if(len + map_len > 160) {
+            nominated_list[len - 2] = 0;
             client_print_color(id, print_team_default, "%s ^1%s", g_sPrefix, nominated_list);
-            nominated_list = "";
+            nominated_list[0] = 0;
+            len = 0;
         }
 
         len = formatex(nominated_list, charsmax(nominated_list), "%s%s, ", nominated_list, nom_info[NomMap]);
