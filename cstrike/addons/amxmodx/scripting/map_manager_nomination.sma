@@ -460,10 +460,11 @@ public clcmd_mapslist(id)
 }
 public clcmd_recent_maps(id)
 {
-    new szBuffer[240];
+    new szBuffer[192];
     new size = ArraySize(g_aMapsList);
     new map_info[MapStruct];
-    new iPos;
+    new iPos, lines;
+    new bool:has_maps;
 
     if(size > 0) {
         new imaps = get_cvar_num("mapm_blocklist_ban_last_maps") + 1;
@@ -485,22 +486,38 @@ public clcmd_recent_maps(id)
             new szMap[MAPNAME_LENGTH];
             ArrayGetString(mapstrings, i, szMap, charsmax(szMap));
             if(strlen(szMap) > 0) {
+                has_maps = true;
                 if(!skipfirst) {
-                    iPos += formatex(szBuffer[iPos], charsmax(szBuffer) - iPos, "%s, ", szMap);
+                    if(iPos + strlen(szMap) + 2 > 160) {
+                        if(lines == 0) {
+                            client_print_color(0, id, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_NOM_RECENT_MAPS", szBuffer);
+                        } else {
+                            client_print_color(0, id, "%s^1 %s", g_sPrefix, szBuffer);
+                        }
+                        iPos = 0;
+                        szBuffer[0] = 0;
+                        lines++;
+                    }
+                    iPos += formatex(szBuffer[iPos], charsmax(szBuffer) - iPos, ", %s", szMap);
+                } else {
+                    iPos = formatex(szBuffer, charsmax(szBuffer), "%s", szMap);
                 }
                 skipfirst = false;
             }
         }
 
         if(iPos > 0) {
-            szBuffer[strlen(szBuffer) - 2] = 0;
-            client_print_color(0, id, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_NOM_RECENT_MAPS", szBuffer);
-        } else {
-            client_print_color(0, id, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_NOM_NORECENT_MAPS");
+            if(lines == 0) {
+                client_print_color(0, id, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_NOM_RECENT_MAPS", szBuffer);
+            } else {
+                client_print_color(0, id, "%s^1 %s", g_sPrefix, szBuffer);
+            }
         }
 
         ArrayDestroy(mapstrings);
-    } else {
+    }
+
+    if(!has_maps) {
         client_print_color(0, id, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_NOM_NORECENT_MAPS");
     }
 }
