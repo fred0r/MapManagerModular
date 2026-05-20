@@ -33,7 +33,7 @@ public plugin_init()
     register_plugin(PLUGIN, VERSION + VERSION_HASH, AUTHOR);
 
     g_pCvars[BLOCK_MODE] = register_cvar("mapm_blocklist_mode", "0");
-    g_pCvars[BAN_LAST_MAPS] = register_cvar("mapm_blocklist_ban_last_maps", "10");
+    g_pCvars[BAN_LAST_MAPS] = register_cvar("mapm_blocklist_ban_last_maps", "8");
 }
 public plugin_natives()
 {
