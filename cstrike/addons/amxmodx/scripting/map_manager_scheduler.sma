@@ -65,7 +65,8 @@ enum Cvars {
     FRAGLIMIT,
     FRAGSLEFT,
     NEXTMAP,
-    EXTEND_MAP_IF_NO_VOTES
+    EXTEND_MAP_IF_NO_VOTES,
+    COUNT_BOTS
 };
 
 new g_pCvars[Cvars];
@@ -120,6 +121,7 @@ public plugin_init()
     g_pCvars[FRAGSLEFT] = get_cvar_pointer("mp_fragsleft");
 
     g_pCvars[NEXTMAP] = register_cvar("amx_nextmap", "", FCVAR_SERVER|FCVAR_EXTDLL|FCVAR_SPONLY);
+    g_pCvars[COUNT_BOTS] = register_cvar("mapm_count_bots_as_players", "1"); // 0 - exclude bots, 1 - count bots
 
     g_hForwards[MAP_EXTENDED] = CreateMultiForward("mapm_scheduler_map_extended", ET_IGNORE, FP_CELL, FP_CELL);
 
@@ -147,7 +149,11 @@ public plugin_cfg()
 get_real_playersnum()
 {
     new players[32], num;
-    get_players(players, num, "h");
+    new flags[4] = "h";
+    if(!get_num(COUNT_BOTS)) {
+        strcat(flags, "c", charsmax(flags));
+    }
+    get_players(players, num, flags);
     return num;
 }
 

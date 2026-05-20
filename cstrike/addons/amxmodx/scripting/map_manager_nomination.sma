@@ -288,7 +288,11 @@ public clcmd_say(id)
 get_real_playersnum()
 {
     new players[32], num;
-    get_players(players, num, "h");
+    new flags[4] = "h";
+    if(!get_cvar_num("mapm_count_bots_as_players")) {
+        strcat(flags, "c", charsmax(flags));
+    }
+    get_players(players, num, flags);
     return num;
 }
 
