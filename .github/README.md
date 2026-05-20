@@ -64,10 +64,10 @@ Do you **need some help**? Check the _articles_ from the [wiki](https://github.c
 
 ### Nomination plugin
 - **Recent maps display** (`say recentmaps`) — shows currently blocked recent maps from the blocklist, ordered by recency. Output auto-splits across chat lines if the list is long.
-- **Player-count filter** (`mapm_nom_filter_by_players "0"`) — when enabled, maps whose `MinPlayers`/`MaxPlayers` from `.ini` files don't match the current real player count are hidden from the nomination menu and rejected on nomination with a reason message. HLTV and bots are excluded from the player count.
+- **Player-count filter** (`mapm_nom_filter_by_players "0"`) — when enabled, maps whose `MinPlayers`/`MaxPlayers` from `.ini` files don't match the current real player count are hidden from the nomination menu and rejected on nomination with a reason message. HLTV is excluded from the player count; bots remain at admin's discretion.
 
 ### Scheduler plugin
-- **HLTV-aware player count** — all player count checks exclude HLTV and bots via `get_players(..., "ch")`. An empty server with only HLTV connected now correctly skips auto-voting.
+- **HLTV-aware player count** — all player count checks exclude HLTV via `get_players(..., "h")` (bots are counted as players). An empty server with only HLTV connected now correctly skips auto-voting.
 - **mapcycle.txt fallback when empty** — when no real players are online, `amx_nextmap` syncs from the server's `mapcycle.txt` instead of MapManager's own rotation. Reverts to `[not yet voted on]` when players join.
 - **Admin changelevel passthrough** — `amx_map` / `rcon changelevel` no longer gets overridden by the scheduler's intermission handler.
 

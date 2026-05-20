@@ -147,7 +147,7 @@ public plugin_cfg()
 get_real_playersnum()
 {
     new players[32], num;
-    get_players(players, num, "ch");
+    get_players(players, num, "h");
     return num;
 }
 
