@@ -467,7 +467,7 @@ public clcmd_recent_maps(id)
     new bool:has_maps;
 
     if(size > 0) {
-        new imaps = get_cvar_num("mapm_blocklist_ban_last_maps") + 1;
+        new imaps = min(get_cvar_num("mapm_blocklist_ban_last_maps"), 20) + 1;
         new Array:mapstrings = ArrayCreate(MAPNAME_LENGTH, imaps);
 
         for(new i; i < imaps; i++) {

@@ -119,7 +119,7 @@ load_blocklist()
     new file_dir[256]; get_localinfo("amxx_datadir", file_dir, charsmax(file_dir));
     new file_path[256]; formatex(file_path, charsmax(file_path), "%s/%s", file_dir, FILE_BLOCKED_MAPS);
 
-    new block_value = get_num(BAN_LAST_MAPS);
+    new block_value = min(get_num(BAN_LAST_MAPS), 20);
 
     new cur_map[MAPNAME_LENGTH]; get_mapname(cur_map, charsmax(cur_map)); strtolower(cur_map);
     TrieSetCell(g_tBlockedList, cur_map, block_value);
