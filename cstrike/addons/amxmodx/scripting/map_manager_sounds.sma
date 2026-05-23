@@ -118,3 +118,10 @@ play_sound(id, sound[])
         client_cmd(id, "mp3 play ^"%s^"", sound);
     }
 }
+
+public plugin_end()
+{
+    if(g_tCountdownSounds != Invalid_Trie) {
+        TrieDestroy(g_tCountdownSounds);
+    }
+}

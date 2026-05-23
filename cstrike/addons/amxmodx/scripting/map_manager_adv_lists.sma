@@ -281,3 +281,21 @@ get_string_time(time, out[], size)
 {
     formatex(out, size, "%02d:%02d", time / 60, time % 60);
 }
+
+public plugin_end()
+{
+    if(g_tMapPull != Invalid_Trie) {
+        TrieDestroy(g_tMapPull);
+    }
+    if(g_aLists != Invalid_Array) {
+        ArrayDestroy(g_aLists);
+    }
+    if(g_aActiveLists != Invalid_Array) {
+        ArrayDestroy(g_aActiveLists);
+    }
+    for(new i; i < MAX_MAPLISTS; i++) {
+        if(g_aMapLists[i] != Invalid_Array) {
+            ArrayDestroy(g_aMapLists[i]);
+        }
+    }
+}

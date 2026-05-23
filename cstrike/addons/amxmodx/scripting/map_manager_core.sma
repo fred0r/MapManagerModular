@@ -950,3 +950,36 @@ bool:is_map_in_vote(map[])
     }
     return false;
 }
+
+public plugin_end()
+{
+    remove_task(TASK_PREPARE_VOTE);
+    remove_task(TASK_VOTE_TIME);
+
+    DestroyForward(g_hForwards[MAPLIST_LOADED]);
+    DestroyForward(g_hForwards[MAPLIST_UNLOADED]);
+    DestroyForward(g_hForwards[PREPARE_VOTELIST]);
+    DestroyForward(g_hForwards[VOTE_STARTED]);
+    DestroyForward(g_hForwards[VOTE_CANCELED]);
+    DestroyForward(g_hForwards[ANALYSIS_OF_RESULTS]);
+    DestroyForward(g_hForwards[VOTE_FINISHED]);
+    DestroyForward(g_hForwards[CAN_BE_IN_VOTELIST]);
+    DestroyForward(g_hForwards[CAN_BE_EXTENDED]);
+    DestroyForward(g_hForwards[COUNTDOWN]);
+    DestroyForward(g_hForwards[DISPLAYED_ITEM_NAME]);
+
+    if(g_aMapsList != Invalid_Array) {
+        ArrayDestroy(g_aMapsList);
+    }
+    if(g_aCustomItems != Invalid_Array) {
+        for(new i, size = ArraySize(g_aCustomItems); i < size; i++) {
+            new custom_item[CustomItemStruct];
+            ArrayGetArray(g_aCustomItems, i, custom_item);
+            DestroyForward(custom_item[ci_handler]);
+        }
+        ArrayDestroy(g_aCustomItems);
+    }
+    if(g_aMenuItems != Invalid_Array) {
+        ArrayDestroy(g_aMenuItems);
+    }
+}

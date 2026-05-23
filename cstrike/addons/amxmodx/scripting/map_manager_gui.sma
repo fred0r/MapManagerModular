@@ -621,3 +621,17 @@ public switch_hud(id, enable)
     write_byte(enable ? 0 : hud_flags);
     message_end();
 }
+
+public plugin_end()
+{
+    if(g_aPacks != Invalid_Array) {
+        new pack_info[PackStruct];
+        for(new i, size = ArraySize(g_aPacks); i < size; i++) {
+            ArrayGetArray(g_aPacks, i, pack_info);
+            if(pack_info[Maps] != Invalid_Trie) {
+                TrieDestroy(Trie:pack_info[Maps]);
+            }
+        }
+        ArrayDestroy(g_aPacks);
+    }
+}
