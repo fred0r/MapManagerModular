@@ -317,6 +317,9 @@ public plugin_end()
         set_float(TIMELIMIT, g_fOldTimeLimit);
     }
     restore_limits();
+    if(g_hForwards[MAP_EXTENDED] != -1) {
+        DestroyForward(g_hForwards[MAP_EXTENDED]);
+    }
 }
 restore_limits()
 {

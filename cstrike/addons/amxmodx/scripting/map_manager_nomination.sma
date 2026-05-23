@@ -793,3 +793,12 @@ remove_maps()
         }
     }
 }
+public plugin_end()
+{
+    if(g_aNomList != Invalid_Array) {
+        ArrayDestroy(g_aNomList);
+    }
+    if(g_hForwards[CAN_BE_NOMINATED] != -1) {
+        DestroyForward(g_hForwards[CAN_BE_NOMINATED]);
+    }
+}

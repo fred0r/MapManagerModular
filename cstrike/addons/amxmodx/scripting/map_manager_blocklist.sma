@@ -195,3 +195,12 @@ public mapm_can_be_in_votelist(const map[])
         return TrieKeyExists(g_tBlockedList, lower) ? MAP_BLOCKED : MAP_ALLOWED;
     }
 }
+public plugin_end()
+{
+    if(g_tBlockedList != Invalid_Trie) {
+        TrieDestroy(g_tBlockedList);
+    }
+    if(g_tBlockedPrefix != Invalid_Trie) {
+        TrieDestroy(g_tBlockedPrefix);
+    }
+}
