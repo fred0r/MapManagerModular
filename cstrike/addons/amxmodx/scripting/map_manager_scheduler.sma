@@ -574,6 +574,12 @@ public mapm_maplist_loaded(Array:maplist, const nextmap[])
     mapm_set_vote_finished(false);
     g_eLastRoundState = LRS_Not;
     g_bMapChangeScheduled = false;
+    g_bVoteInNewRound = false;
+
+    if(g_fOldTimeLimit > 0.0) {
+        set_float(TIMELIMIT, g_fOldTimeLimit);
+        g_fOldTimeLimit = 0.0;
+    }
 
     if(!g_eLastRoundState) {
         if(get_real_playersnum() == 0) {
