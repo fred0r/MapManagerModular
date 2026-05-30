@@ -538,10 +538,7 @@ public event_intermission()
     }
     g_bMapChangeScheduled = false;
 
-    if(task_exists(TASK_DELAYED_CHANGE)) {
-        log_amx("double intermission, how?");
-        return;
-    }
+    remove_task(TASK_DELAYED_CHANGE);
     new Float:chattime = get_float(CHATTIME);
     set_float(CHATTIME, chattime + 1.0);
     set_task(chattime, "delayed_change", TASK_DELAYED_CHANGE);
@@ -575,6 +572,7 @@ public mapm_maplist_loaded(Array:maplist, const nextmap[])
     g_eLastRoundState = LRS_Not;
     g_bMapChangeScheduled = false;
     g_bVoteInNewRound = false;
+    remove_task(TASK_DELAYED_CHANGE);
 
     if(g_fOldTimeLimit > 0.0) {
         set_float(TIMELIMIT, g_fOldTimeLimit);
