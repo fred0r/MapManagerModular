@@ -73,11 +73,13 @@ public ini_key_value(INIParser:handle, const key[], const value[], bool:invalid_
             precache_generic(g_sVoteFinished);
         }
         case SOUNDS_COUNTDOWN: {
-            new k[16];
+            new k[16], sound[128];
             copy(k, charsmax(k), key);
+            copy(sound, charsmax(sound), value);
             remove_quotes(k);
-            precache_generic(value);
-            TrieSetString(g_tCountdownSounds, k, value);
+            remove_quotes(sound);
+            precache_generic(sound);
+            TrieSetString(g_tCountdownSounds, k, sound);
         }
     }
     return true;
@@ -112,9 +114,21 @@ public mapm_vote_finished(const map[], type, total_votes)
 play_sound(id, sound[])
 {
     new len = strlen(sound);
+    if(len < 4) return;
     if(equali(sound[len - 3], "wav")) {
         send_audio(id, sound, PITCH_NORM);
     } else if(equali(sound[len - 3], "mp3")) {
-        client_cmd(id, "mp3 play ^"%s^"", sound);
+        new players[32], pnum;
+        get_players(players, pnum, "ch");
+        for(new i; i < pnum; i++) {
+            client_cmd(players[i], "mp3 play ^"%s^"", sound);
+        }
+    }
+}
+
+public plugin_end()
+{
+    if(g_tCountdownSounds != Invalid_Trie) {
+        TrieDestroy(g_tCountdownSounds);
     }
 }

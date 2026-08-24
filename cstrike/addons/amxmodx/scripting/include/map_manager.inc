@@ -174,10 +174,11 @@ native mapm_get_vote_type();
  *
  * @param item                  Index in votelist
  * @param value                 Map name
+ * @param player                Optional player who voted, marks him as voted
  * 
  * @return                      1 if success
  */
-native mapm_add_vote_to_item(item, value);
+native mapm_add_vote_to_item(item, value, player = 0);
 
 /**
  * Set displayed name for item.

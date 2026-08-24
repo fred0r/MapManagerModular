@@ -102,8 +102,10 @@ new Array:g_aPacks;
 new bool:g_bShowSelects;
 new g_iCurMap;
 
+new bool:g_bHooksRegistered;
+
 new g_sCurMap[MAPNAME_LENGTH];
-new g_sPrefix[32];
+new g_sPrefix[48];
 
 new Float:g_fCursorSens = CURSOR_SENSITIVITY;
 
@@ -295,9 +297,14 @@ find_map_frame(map[], pack[], plen, &Float:scale,&Float:begin, &Float:end)
 {
     new pack_info[PackStruct];
     if(equali(map, g_sCurMap)) {
-        ArrayGetArray(g_aPacks, 0, pack_info);
-        copy(pack, plen, pack_info[Path]);
-        scale = pack_info[Scale];
+        if(ArraySize(g_aPacks) > 0) {
+            ArrayGetArray(g_aPacks, 0, pack_info);
+            copy(pack, plen, pack_info[Path]);
+            scale = pack_info[Scale];
+        } else {
+            pack[0] = 0;
+            scale = 1.0;
+        }
         begin = end = EXTEND_MAP_FRAME;
         return CURRENT_MAP;
     }
@@ -314,8 +321,13 @@ find_map_frame(map[], pack[], plen, &Float:scale,&Float:begin, &Float:end)
         }
     }
 
-    copy(pack, plen, pack_info[Path]);
-    scale = pack_info[Scale];
+    if(size > 0) {
+        copy(pack, plen, pack_info[Path]);
+        scale = pack_info[Scale];
+    } else {
+        pack[0] = 0;
+        scale = 1.0;
+    }
     begin = end = UNKNOWN_MAP_FRAME;
 
     return UNKNOWN_MAP;
@@ -327,7 +339,7 @@ public mapm_vote_started(type)
 
     show_gui();
 
-    g_iMapsCount = mapm_get_count_maps_in_vote();
+    g_iMapsCount = min(mapm_get_count_maps_in_vote(), MAX_MAP_CUBES);
     g_iCurMap = -1;
 
     new map[MAPNAME_LENGTH];
@@ -368,10 +380,13 @@ public mapm_vote_started(type)
 
     switch_hud(0, false);
     
-    g_hForwards[AddToFullPack_Pre] = register_forward(FM_AddToFullPack, "fm_add_to_full_pack_pre", false);
-    g_hForwards[AddToFullPack_Post] = register_forward(FM_AddToFullPack, "fm_add_to_full_pack_post", true);
-    g_hForwards[CmdStart_Post] = register_forward(FM_CmdStart, "fm_cmd_start_post", true);
-    g_hForwards[CheckVisibility_Pre] = register_forward(FM_CheckVisibility, "fm_check_visibility_pre", false);
+    if(!g_bHooksRegistered) {
+        g_bHooksRegistered = true;
+        g_hForwards[AddToFullPack_Pre] = register_forward(FM_AddToFullPack, "fm_add_to_full_pack_pre", false);
+        g_hForwards[AddToFullPack_Post] = register_forward(FM_AddToFullPack, "fm_add_to_full_pack_post", true);
+        g_hForwards[CmdStart_Post] = register_forward(FM_CmdStart, "fm_cmd_start_post", true);
+        g_hForwards[CheckVisibility_Pre] = register_forward(FM_CheckVisibility, "fm_check_visibility_pre", false);
+    }
 }
 
 public mapm_countdown(type, time)
@@ -421,16 +436,19 @@ disable_gui()
         attach_view(id, id);
     }
 
-    for(new i; i < 8; i++) {
+    for(new i; i < MAX_MAP_CUBES; i++) {
         show_dhudmessage(0, "");
     }
 
     switch_hud(0, true);
 
-    unregister_forward(FM_AddToFullPack, g_hForwards[AddToFullPack_Pre], false);
-    unregister_forward(FM_AddToFullPack, g_hForwards[AddToFullPack_Post], true);
-    unregister_forward(FM_CmdStart, g_hForwards[CmdStart_Post], true);
-    unregister_forward(FM_CheckVisibility, g_hForwards[CheckVisibility_Pre], false);
+    if(g_bHooksRegistered) {
+        g_bHooksRegistered = false;
+        unregister_forward(FM_AddToFullPack, g_hForwards[AddToFullPack_Pre], false);
+        unregister_forward(FM_AddToFullPack, g_hForwards[AddToFullPack_Post], true);
+        unregister_forward(FM_CmdStart, g_hForwards[CmdStart_Post], true);
+        unregister_forward(FM_CheckVisibility, g_hForwards[CheckVisibility_Pre], false);
+    }
 
     hide_gui();
 }
@@ -506,13 +524,13 @@ public fm_cmd_start_post(id, cmd, seed)
             if(g_bShowSelects) {
                 new name[32]; get_user_name(id, name, charsmax(name));
                 if(pos == g_iCurMap) {
-                    client_print_color(0, id, "%s^3 %L", g_sPrefix, LANG_PLAYER, "MAPM_CHOSE_EXTEND", name);
+                    client_print_color(0, print_team_default, "%s^3 %L", g_sPrefix, LANG_PLAYER, "MAPM_CHOSE_EXTEND", name);
                 } else {
-                    client_print_color(0, id, "%s^3 %L", g_sPrefix, LANG_PLAYER, "MAPM_CHOSE_MAP", name, g_eCubesInfo[pos][Name]);
+                    client_print_color(0, print_team_default, "%s^3 %L", g_sPrefix, LANG_PLAYER, "MAPM_CHOSE_MAP", name, g_eCubesInfo[pos][Name]);
                 }
             }
             g_bVoted[id] = true;
-            mapm_add_vote_to_item(pos, 1);
+            mapm_add_vote_to_item(pos, get_vote_power(id), id);
         }
     }
 
@@ -620,4 +638,18 @@ public switch_hud(id, enable)
     message_begin((id) ? MSG_ONE : MSG_ALL, msg_hide_weapon, _, id);
     write_byte(enable ? 0 : hud_flags);
     message_end();
+}
+
+public plugin_end()
+{
+    if(g_aPacks != Invalid_Array) {
+        new pack_info[PackStruct];
+        for(new i, size = ArraySize(g_aPacks); i < size; i++) {
+            ArrayGetArray(g_aPacks, i, pack_info);
+            if(pack_info[Maps] != Invalid_Trie) {
+                TrieDestroy(Trie:pack_info[Maps]);
+            }
+        }
+        ArrayDestroy(g_aPacks);
+    }
 }

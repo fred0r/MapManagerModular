@@ -119,8 +119,10 @@ public mapm_prepare_votelist(type)
             && (type == VOTE_BY_SCHEDULER || type == VOTE_BY_RTV || type == VOTE_BY_CMD)
             && get_num(VOTE_IN_NEW_ROUND)) {
             // increase freezetime
-            g_bFreezeTimeChanged = true;
-            set_float(FREEZETIME, get_float(FREEZETIME) + get_float(PREPARE_TIME) + get_float(VOTE_TIME) + 1);
+            if(!g_bFreezeTimeChanged) {
+                g_bFreezeTimeChanged = true;
+                set_float(FREEZETIME, get_float(FREEZETIME) + get_float(PREPARE_TIME) + get_float(VOTE_TIME) + 1);
+            }
         } else {
             g_bFreezeFlagsChanged = true;
             freeze_unfreeze(0);

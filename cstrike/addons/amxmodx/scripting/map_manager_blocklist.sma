@@ -33,7 +33,7 @@ public plugin_init()
     register_plugin(PLUGIN, VERSION + VERSION_HASH, AUTHOR);
 
     g_pCvars[BLOCK_MODE] = register_cvar("mapm_blocklist_mode", "0");
-    g_pCvars[BAN_LAST_MAPS] = register_cvar("mapm_blocklist_ban_last_maps", "10");
+    g_pCvars[BAN_LAST_MAPS] = register_cvar("mapm_blocklist_ban_last_maps", "8");
 }
 public plugin_natives()
 {
@@ -71,7 +71,7 @@ public native_get_blocked_count(plugin, params)
 
     return count;
 }
-public mapm_maplist_loaded(Array:mapslist)
+public mapm_maplist_loaded(Array:mapslist, const nextmap[])
 {
     if(!g_tBlockedList) {
         g_tBlockedList = TrieCreate();
@@ -108,6 +108,7 @@ public mapm_maplist_loaded(Array:mapslist)
     if(valid_maps <= 0) {
         TrieClear(g_tBlockedList);
         TrieClear(g_tBlockedPrefix);
+        save_blocklist();
         log_amx("Blocklist cleared. More blocked maps than available.");
     }
     else if(valid_maps < votelist_size) {
@@ -119,7 +120,7 @@ load_blocklist()
     new file_dir[256]; get_localinfo("amxx_datadir", file_dir, charsmax(file_dir));
     new file_path[256]; formatex(file_path, charsmax(file_path), "%s/%s", file_dir, FILE_BLOCKED_MAPS);
 
-    new block_value = get_num(BAN_LAST_MAPS);
+    new block_value = min(get_num(BAN_LAST_MAPS), 20);
 
     new cur_map[MAPNAME_LENGTH]; get_mapname(cur_map, charsmax(cur_map)); strtolower(cur_map);
     TrieSetCell(g_tBlockedList, cur_map, block_value);
@@ -135,6 +136,7 @@ load_blocklist()
         
         while(!feof(f)) {
             fgets(f, buffer, charsmax(buffer));
+            if(feof(f)) break;
             parse(buffer, map, charsmax(map), str_count, charsmax(str_count));
             strtolower(map);
             
@@ -145,11 +147,12 @@ load_blocklist()
             if(count <= 0) continue;
 
             fprintf(temp, "^"%s^" ^"%d^"^n", map, count);
-            strtolower(map);
             TrieSetCell(g_tBlockedList, map, count);
 
             get_map_prefix(map, prefix, charsmax(prefix));
-            TrieSetCell(g_tBlockedPrefix, prefix, count);
+            new old_prefix_count = 0;
+            TrieGetCell(g_tBlockedPrefix, prefix, old_prefix_count);
+            TrieSetCell(g_tBlockedPrefix, prefix, max(count, old_prefix_count));
         }
         
         fprintf(temp, "^"%s^" ^"%d^"^n", cur_map, block_value);
@@ -163,7 +166,20 @@ load_blocklist()
         f = fopen(file_path, "wt");
         if(f) {
             fprintf(f, "^"%s^" ^"%d^"^n", cur_map, block_value);
+            fclose(f);
         }
+    }
+}
+save_blocklist()
+{
+    new file_dir[256]; get_localinfo("amxx_datadir", file_dir, charsmax(file_dir));
+    new file_path[256]; formatex(file_path, charsmax(file_path), "%s/%s", file_dir, FILE_BLOCKED_MAPS);
+
+    new cur_map[MAPNAME_LENGTH]; get_mapname(cur_map, charsmax(cur_map)); strtolower(cur_map);
+
+    new f = fopen(file_path, "wt");
+    if(f) {
+        fprintf(f, "^"%s^" ^"%d^"^n", cur_map, min(get_num(BAN_LAST_MAPS), 20));
         fclose(f);
     }
 }
@@ -177,7 +193,7 @@ public mapm_prepare_votelist(type)
     }
     g_bNeedCheck = get_num(BAN_LAST_MAPS) > 0;
 }
-public mapm_can_be_in_votelist(const map[])
+public mapm_can_be_in_votelist(const map[], type, index)
 {
     if(!g_bNeedCheck) {
         return MAP_ALLOWED;
@@ -193,5 +209,14 @@ public mapm_can_be_in_votelist(const map[])
     }
     else {
         return TrieKeyExists(g_tBlockedList, lower) ? MAP_BLOCKED : MAP_ALLOWED;
+    }
+}
+public plugin_end()
+{
+    if(g_tBlockedList != Invalid_Trie) {
+        TrieDestroy(g_tBlockedList);
+    }
+    if(g_tBlockedPrefix != Invalid_Trie) {
+        TrieDestroy(g_tBlockedPrefix);
     }
 }

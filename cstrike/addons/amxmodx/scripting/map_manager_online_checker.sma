@@ -56,7 +56,7 @@ public task_check_online()
     }
 
     new current_online = get_players_num();
-    if(current_online != 0 && get_float(CHECK_TIMEOUT) > get_gametime()) {
+    if(current_online == 0 || get_float(CHECK_TIMEOUT) > get_gametime()) {
         return;
     }
 
@@ -84,6 +84,16 @@ public mapm_maplist_loaded(Array: maplist, const nextmap[])
     g_Warnings = 0;
     set_task(get_float(CHECK_INTERVAL), "task_check_online", .flags = "b", .id = TASK_CHECK_ONLINE);
     ArrayGetArray(maplist, idx, g_CurrentMap);
+}
+
+public mapm_vote_finished(const map[], type, total_votes)
+{
+    g_Warnings = 0;
+}
+
+public mapm_vote_canceled(type)
+{
+    g_Warnings = 0;
 }
 
 public mapm_can_be_extended(type)

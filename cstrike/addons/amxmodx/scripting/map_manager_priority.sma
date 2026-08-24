@@ -33,7 +33,11 @@ public mapm_can_be_in_votelist(const map[], type, index)
     if(type == PUSH_BY_NOMINATION && get_num(IGNORE_NOMINATION)) {
         return MAP_ALLOWED;
     }
-    
+
+    if(index == INVALID_MAP_INDEX) {
+        return MAP_ALLOWED;
+    }
+
     new map_info[MapStruct];
     ArrayGetArray(g_aMapList, index, map_info);
     new rnd = random_num(0, 99);

@@ -85,7 +85,7 @@ public clcmd_timeleft(id)
     } else {
         if (get_num(TIMELIMIT)) {
             new a = get_timeleft();
-            client_print_color(0, id, "%s^1 %L:^3 %d:%02d", g_sPrefix, LANG_PLAYER, "MAPM_TIME_TO_END", (a / 60), (a % 60));
+            client_print_color(0, print_team_default, "%s^1 %L:^3 %d:%02d", g_sPrefix, LANG_PLAYER, "MAPM_TIME_TO_END", (a / 60), (a % 60));
         } else {
             if(is_vote_will_in_next_round()) {
                 client_print_color(0, print_team_default, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_VOTE_IN_NEXTROUND");
@@ -104,12 +104,12 @@ public clcmd_nextmap(id)
 {
     if(is_vote_finished()) {
         new map[MAPNAME_LENGTH]; get_pcvar_string(g_pCvars[NEXTMAP], map, charsmax(map));
-        client_print_color(0, id, "%s^1 %L %s^1.", g_sPrefix, LANG_PLAYER, "MAPM_NEXTMAP", map);
+        client_print_color(0, print_team_default, "%s^1 %L %s^1.", g_sPrefix, LANG_PLAYER, "MAPM_NEXTMAP", map);
     } else {
-        client_print_color(0, id, "%s^1 %L %L^1.", g_sPrefix, LANG_PLAYER, "MAPM_NEXTMAP", LANG_PLAYER, "MAPM_NOT_SELECTED");
+        client_print_color(0, print_team_default, "%s^1 %L %L^1.", g_sPrefix, LANG_PLAYER, "MAPM_NEXTMAP", LANG_PLAYER, "MAPM_NOT_SELECTED");
     }
 }
 public clcmd_currentmap(id)
 {
-    client_print_color(0, id, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_CURRENT_MAP", g_sCurMap);
+    client_print_color(0, print_team_default, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_CURRENT_MAP", g_sCurMap);
 }

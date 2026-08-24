@@ -53,7 +53,8 @@ enum Cvars {
     VOTE_TIME,
     VOTE_ITEM_OFFSET,
     ONLY_EXTERNAL_VOTE_ITEMS,
-    EARLY_FINISH_VOTE
+    EARLY_FINISH_VOTE,
+    ADMIN_VOTE_POWER
 };
 
 new g_pCvars[Cvars];
@@ -133,6 +134,7 @@ public plugin_init()
     g_pCvars[VOTE_ITEM_OFFSET] = register_cvar("mapm_vote_item_offset", "0");
     g_pCvars[ONLY_EXTERNAL_VOTE_ITEMS] = register_cvar("mapm_only_external_vote_items", "0");
     g_pCvars[EARLY_FINISH_VOTE] = register_cvar("mapm_early_finish_vote", "0");
+    g_pCvars[ADMIN_VOTE_POWER] = register_cvar("mapm_admin_vote_power", "1"); // how many votes an admin vote counts
 
     g_hForwards[MAPLIST_LOADED] = CreateMultiForward("mapm_maplist_loaded", ET_IGNORE, FP_CELL, FP_STRING);
     g_hForwards[MAPLIST_UNLOADED] = CreateMultiForward("mapm_maplist_unloaded", ET_IGNORE);
@@ -192,7 +194,7 @@ public native_load_maplist(plugin, params)
 
     if(get_param(arg_clearlist)) {
         if(g_aMapsList == Invalid_Array) {
-            set_fail_state("Clear empty Array. Don't use this navite before core load maplist.");
+            set_fail_state("Clear empty Array. Don't use this native before core load maplist.");
             return;
         }
         ArrayClear(g_aMapsList);
@@ -366,7 +368,8 @@ public native_add_vote_to_item(plugin, params)
 {
     enum {
         arg_item = 1,
-        arg_value
+        arg_value,
+        arg_player
     };
     
     new item = get_param(arg_item);
@@ -377,7 +380,8 @@ public native_add_vote_to_item(plugin, params)
     item += g_iStartPos;
 
     new value = get_param(arg_value);
-    add_item_votes(item, value);
+    new player = params >= arg_player ? get_param(arg_player) : 0;
+    add_item_votes(item, value, player);
 
     return 1;
 }
@@ -401,7 +405,7 @@ public native_set_displayed_name(plugin, params)
     copy(item_data[is_displayed_name], charsmax(item_data[is_displayed_name]), displayed_name);
     ArraySetArray(g_aMenuItems, item, item_data);
 
-    return 0;
+    return 1;
 }
 public native_add_custom_item(plugin, params)
 {
@@ -573,11 +577,15 @@ prepare_vote(type)
     // push from core
     if(!get_num(ONLY_EXTERNAL_VOTE_ITEMS) && g_iVoteItems < vote_max_items) {
         new map_info[MapStruct];
-        for(new random_map; g_iVoteItems < vote_max_items; g_iVoteItems++) {
+        for(new random_map, retries; g_iVoteItems < vote_max_items; g_iVoteItems++) {
+            retries = 0;
             do {
                 random_map = random_num(0, array_size - 1);
                 ArrayGetArray(g_aMapsList, random_map, map_info);
+                if(++retries >= array_size) break;
             } while(is_map_in_vote(map_info[Map]) || !is_map_allowed(map_info[Map], PUSH_BY_CORE, random_map) || equali(map_info[Map], g_sCurMap));
+
+            if(retries >= array_size) break;
 
             copy(item_data[is_name], charsmax(item_data[is_name]), map_info[Map]);
             item_data[is_type] = it_normal;
@@ -635,6 +643,10 @@ prepare_vote(type)
 
     if(g_iOffset + size >= MAX_VOTELIST_SIZE) {
         g_iOffset = MAX_VOTELIST_SIZE - size;
+    }
+
+    if(g_iOffset < 0) {
+        g_iOffset = 0;
     }
 
     // displayed name
@@ -699,17 +711,20 @@ get_original_num(num)
 public countdown(taskid)
 {
     if(--g_iTimer > 0) {
-        if(taskid == TASK_VOTE_TIME && !g_bBlockShowVote) {
-            new dont_show_result = get_num(SHOW_RESULT_TYPE) == SHOW_DISABLED;
-            g_iShowType = get_num(SHOW_RESULT_TYPE);
-            g_iShowPercent = get_num(SHOW_PERCENT);
-            g_bShowSelects = get_num(SHOW_SELECTS);
-            
+        if(taskid == TASK_VOTE_TIME) {
             new players[32]; get_players(players, g_iPlayersNum, "ch");
-            for(new i, id; i < g_iPlayersNum; i++) {
-                id = players[i];
-                if(!dont_show_result || g_iVoted[id] == NOT_VOTED) {
-                    show_votemenu(id);
+
+            if(!g_bBlockShowVote) {
+                new dont_show_result = get_num(SHOW_RESULT_TYPE) == SHOW_DISABLED;
+                g_iShowType = get_num(SHOW_RESULT_TYPE);
+                g_iShowPercent = get_num(SHOW_PERCENT);
+                g_bShowSelects = get_num(SHOW_SELECTS);
+
+                for(new i, id; i < g_iPlayersNum; i++) {
+                    id = players[i];
+                    if(!dont_show_result || g_iVoted[id] == NOT_VOTED) {
+                        show_votemenu(id);
+                    }
                 }
             }
         }
@@ -746,8 +761,10 @@ start_vote()
 }
 public show_votemenu(id)
 {
-    static menu[512];
+    static menu[1024];
     new len, keys, percent, item;
+
+    arrayset(g_iKeyToIndex, INVALID_MAP_INDEX, sizeof(g_iKeyToIndex));
 
     len = formatex(menu, charsmax(menu), "\y%L:^n^n", id, g_iVoted[id] != NOT_VOTED ? "MAPM_MENU_VOTE_RESULTS" : "MAPM_MENU_CHOOSE_MAP");
 
@@ -820,6 +837,11 @@ public votemenu_handler(id, key)
     new original = get_original_num(key - g_iOffset);
 
     new item = g_iKeyToIndex[original];
+
+    if(item == INVALID_MAP_INDEX) {
+        return PLUGIN_HANDLED;
+    }
+
     new item_data[ItemStruct], custom_item_data[CustomItemStruct];
     ArrayGetArray(g_aMenuItems, item, item_data);
 
@@ -839,10 +861,8 @@ public votemenu_handler(id, key)
         return PLUGIN_HANDLED;
     }
 
-    add_item_votes(item, 1);
+    add_item_votes(item, get_vote_power(id), id);
     
-    g_iVoted[id] = item;
-
     if(g_bShowSelects) {
         new name[32]; get_user_name(id, name, charsmax(name));
         if(item == g_iCurMap) {
@@ -858,16 +878,30 @@ public votemenu_handler(id, key)
     
     return PLUGIN_HANDLED;
 }
-add_item_votes(item, value)
+add_item_votes(item, value, player)
 {
-    // TODO: add forward if someone want add more votes for admin, etc.
-
     g_iVotes[item] += value;
     g_iTotalVotes += value;
 
-    if(get_num(EARLY_FINISH_VOTE) && g_iTotalVotes == g_iPlayersNum) {
-        g_iTimer = 0;
-        client_print_color(0, print_team_default, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_EARLY_FINISH_VOTE");
+    if(player > 0 && player < 33) {
+        g_iVoted[player] = item;
+    }
+
+    if(get_num(EARLY_FINISH_VOTE)) {
+        new players[32], pnum;
+        get_players(players, pnum, "ch");
+
+        new voted;
+        for(new i; i < pnum; i++) {
+            if(g_iVoted[players[i]] != NOT_VOTED) {
+                voted++;
+            }
+        }
+
+        if(voted == pnum) {
+            g_iTimer = 0;
+            client_print_color(0, print_team_default, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_EARLY_FINISH_VOTE");
+        }
     }
 }
 finish_vote()
@@ -949,4 +983,37 @@ bool:is_map_in_vote(map[])
         }
     }
     return false;
+}
+
+public plugin_end()
+{
+    remove_task(TASK_PREPARE_VOTE);
+    remove_task(TASK_VOTE_TIME);
+
+    DestroyForward(g_hForwards[MAPLIST_LOADED]);
+    DestroyForward(g_hForwards[MAPLIST_UNLOADED]);
+    DestroyForward(g_hForwards[PREPARE_VOTELIST]);
+    DestroyForward(g_hForwards[VOTE_STARTED]);
+    DestroyForward(g_hForwards[VOTE_CANCELED]);
+    DestroyForward(g_hForwards[ANALYSIS_OF_RESULTS]);
+    DestroyForward(g_hForwards[VOTE_FINISHED]);
+    DestroyForward(g_hForwards[CAN_BE_IN_VOTELIST]);
+    DestroyForward(g_hForwards[CAN_BE_EXTENDED]);
+    DestroyForward(g_hForwards[COUNTDOWN]);
+    DestroyForward(g_hForwards[DISPLAYED_ITEM_NAME]);
+
+    if(g_aMapsList != Invalid_Array) {
+        ArrayDestroy(g_aMapsList);
+    }
+    if(g_aCustomItems != Invalid_Array) {
+        for(new i, size = ArraySize(g_aCustomItems); i < size; i++) {
+            new custom_item[CustomItemStruct];
+            ArrayGetArray(g_aCustomItems, i, custom_item);
+            DestroyForward(custom_item[ci_handler]);
+        }
+        ArrayDestroy(g_aCustomItems);
+    }
+    if(g_aMenuItems != Invalid_Array) {
+        ArrayDestroy(g_aMenuItems);
+    }
 }

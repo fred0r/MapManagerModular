@@ -99,3 +99,17 @@ stock replace_color_tag(string[], len)
     while(replace(string, len, "!t", "^3")) {}
     while(replace(string, len, "!g", "^4")) {}
 }
+stock get_vote_power(id)
+{
+    static cvar_power;
+    if(!cvar_power) {
+        cvar_power = get_cvar_pointer("mapm_admin_vote_power");
+    }
+    if(cvar_power && (get_user_flags(id) & ADMIN_MAP)) {
+        new power = get_pcvar_num(cvar_power);
+        if(power > 1) {
+            return power;
+        }
+    }
+    return 1;
+}

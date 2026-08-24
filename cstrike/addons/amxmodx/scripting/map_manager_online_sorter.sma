@@ -28,7 +28,7 @@ public plugin_natives()
 {
     get_mapname(g_sCurMap, charsmax(g_sCurMap));
 }
-public mapm_maplist_loaded(Array:maplist)
+public mapm_maplist_loaded(Array:maplist, const nextmap[])
 {
     g_aMapsList = maplist;
 }

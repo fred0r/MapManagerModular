@@ -70,7 +70,9 @@ public native_get_list_name(plugin, params)
         arg_size
     };
 
-    new item = ArrayGetCell(g_aActiveLists, get_param(arg_item));
+    new item_idx = get_param(arg_item);
+    if(item_idx < 0 || item_idx >= ArraySize(g_aActiveLists)) return;
+    new item = ArrayGetCell(g_aActiveLists, item_idx);
     new list_info[MapListInfo];
     ArrayGetArray(g_aLists, item, list_info);
     set_string(arg_list_name, list_info[ListName], get_param(arg_size));
@@ -80,8 +82,10 @@ public Array:native_get_list_array(plugin, params)
     enum {
         arg_item = 1
     };
-    
-    new item = ArrayGetCell(g_aActiveLists, get_param(arg_item));
+
+    new item_idx = get_param(arg_item);
+    if(item_idx < 0 || item_idx >= ArraySize(g_aActiveLists)) return Invalid_Array;
+    new item = ArrayGetCell(g_aActiveLists, item_idx);
     return g_aMapLists[item];
 }
 public plugin_cfg()
@@ -107,6 +111,7 @@ public plugin_cfg()
     new list_info[MapListInfo];
     new text[256], name[32], start[8], stop[8], file_list[128], clr[4], i = 0;
     new bool:have_any = false, time[1440 + 1];
+    arrayset(time, 0, sizeof(time));
 
     while(!feof(f)) {
         fgets(f, text, charsmax(text));
@@ -155,6 +160,7 @@ public plugin_cfg()
         ArrayPushArray(g_aLists, list_info);
 
         list_info[AnyTime] = false;
+        list_info[ClearOldList] = false;
         list_info[StartTime] = 25 * 60;
         list_info[StopTime] = -1;
     }
@@ -244,6 +250,8 @@ public task_check_list()
             log_amx("loaded new maplist ^"%s^"", list_info[FileList]);
             mapm_load_maplist(list_info[FileList], list_info[ClearOldList], i != size - 1);
         }
+    } else {
+        ArrayDestroy(temp);
     }
 }
 public mapm_displayed_item_name(type, item, name[])
@@ -280,4 +288,22 @@ get_int_time(string[])
 get_string_time(time, out[], size)
 {
     formatex(out, size, "%02d:%02d", time / 60, time % 60);
+}
+
+public plugin_end()
+{
+    if(g_tMapPull != Invalid_Trie) {
+        TrieDestroy(g_tMapPull);
+    }
+    if(g_aLists != Invalid_Array) {
+        ArrayDestroy(g_aLists);
+    }
+    if(g_aActiveLists != Invalid_Array) {
+        ArrayDestroy(g_aActiveLists);
+    }
+    for(new i; i < MAX_MAPLISTS; i++) {
+        if(g_aMapLists[i] != Invalid_Array) {
+            ArrayDestroy(g_aMapLists[i]);
+        }
+    }
 }

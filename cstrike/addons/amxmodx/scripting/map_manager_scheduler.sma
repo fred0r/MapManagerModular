@@ -84,8 +84,10 @@ new IgnoreFlags:g_bIgnoreCheckStart;
 
 new bool:g_bOneMapMode;
 
-new g_sPrefix[32];
+new g_sPrefix[48];
 new g_sCurMap[MAPNAME_LENGTH];
+new bool:g_bMapChangeScheduled;
+new g_sPrevMap[MAPNAME_LENGTH];
 
 public plugin_init()
 {
@@ -142,6 +144,76 @@ public plugin_cfg()
     get_mapname(g_sCurMap, charsmax(g_sCurMap));
     mapm_get_prefix(g_sPrefix, charsmax(g_sPrefix));
 }
+
+sync_nextmap_from_mapcycle()
+{
+    new dir[256], path[256];
+    get_configsdir(dir, charsmax(dir));
+
+    new len = strlen(dir);
+    if(len > 0 && dir[len - 1] == '/') {
+        dir[--len] = 0;
+    }
+
+    path[0] = 0;
+
+    while(len > 0) {
+        format(path, charsmax(path), "%s/mapcycle.txt", dir);
+        if(file_exists(path)) {
+            break;
+        }
+        path[0] = 0;
+        while(len > 0 && dir[len - 1] != '/') {
+            len--;
+        }
+        if(len > 0) {
+            dir[--len] = 0;
+        }
+    }
+
+    if(!path[0]) {
+        return;
+    }
+
+    new f = fopen(path, "rt");
+    if(!f) {
+        return;
+    }
+
+    new line[64], nextmap[MAPNAME_LENGTH], bool:found_current;
+
+    while(!feof(f)) {
+        fgets(f, line, charsmax(line));
+        trim(line);
+
+        if(!line[0] || line[0] == ';' || (line[0] == '/' && line[1] == '/')) {
+            continue;
+        }
+
+        if(!nextmap[0]) {
+            copy(nextmap, charsmax(nextmap), line);
+        }
+
+        if(equali(line, g_sCurMap)) {
+            found_current = true;
+            nextmap[0] = 0;
+            continue;
+        }
+
+        if(found_current) {
+            copy(nextmap, charsmax(nextmap), line);
+            break;
+        }
+    }
+
+    fclose(f);
+
+    if(nextmap[0] && is_map_valid(nextmap)) {
+        set_pcvar_string(g_pCvars[NEXTMAP], nextmap);
+        log_amx("[sync_nextmap]: mapcycle.txt nextmap set to %s", nextmap);
+    }
+}
+
 public plugin_natives()
 {
     register_library("map_manager_scheduler");
@@ -210,9 +282,21 @@ public native_extend_map(plugin, params)
 {
     enum { arg_count = 1 };
     new count = get_param(arg_count);
+    if(count < 1) return 0;
+
+    new extended_max = get_num(EXTENDED_MAX);
+    if(extended_max != -1 && g_iExtendedNum + count > extended_max) return 0;
+
     g_iExtendedNum += count;
-    // TODO: rounds support?
-    set_float(TIMELIMIT, get_float(TIMELIMIT) + float(get_num(EXTENDED_TIME)) * float(count));
+
+    if(get_num(EXTENDED_TYPE) == EXTEND_ROUNDS) {
+        new win_limit = get_num(WINLIMIT);
+        new max_rounds = get_num(MAXROUNDS);
+        if(win_limit > 0) set_num(WINLIMIT, win_limit + count * get_num(EXTENDED_ROUNDS));
+        if(max_rounds > 0) set_num(MAXROUNDS, max_rounds + count * get_num(EXTENDED_ROUNDS));
+    } else {
+        set_float(TIMELIMIT, get_float(TIMELIMIT) + float(count * get_num(EXTENDED_TIME)));
+    }
     return 1;
 }
 public native_vote_will_in_next_round(plugin, params)
@@ -229,10 +313,13 @@ public native_is_one_map_mode(plugin, params)
 }
 public plugin_end()
 {
+    restore_limits();
     if(g_fOldTimeLimit > 0.0) {
         set_float(TIMELIMIT, g_fOldTimeLimit);
     }
-    restore_limits();
+    if(g_hForwards[MAP_EXTENDED] != -1) {
+        DestroyForward(g_hForwards[MAP_EXTENDED]);
+    }
 }
 restore_limits()
 {
@@ -240,17 +327,17 @@ restore_limits()
         if(get_num(EXTENDED_TYPE) == EXTEND_ROUNDS) {
             new win_limit = get_num(WINLIMIT);
             if(win_limit) {
-                set_pcvar_num(g_pCvars[WINLIMIT], win_limit - g_iExtendedNum * get_num(EXTENDED_ROUNDS));
+                set_pcvar_num(g_pCvars[WINLIMIT], max(win_limit - g_iExtendedNum * get_num(EXTENDED_ROUNDS), 0));
             }
             new max_rounds = get_num(MAXROUNDS);
             if(max_rounds) {
-                set_pcvar_num(g_pCvars[MAXROUNDS], max_rounds - g_iExtendedNum * get_num(EXTENDED_ROUNDS));
+                set_pcvar_num(g_pCvars[MAXROUNDS], max(max_rounds - g_iExtendedNum * get_num(EXTENDED_ROUNDS), 0));
             }
         } else {
             new Float:timelimit = get_float(TIMELIMIT);
             if(timelimit) {
                 new Float:restored_value = timelimit - float(g_iExtendedNum * get_num(EXTENDED_TIME));
-                set_float(TIMELIMIT, restored_value);
+                set_float(TIMELIMIT, restored_value < 0.0 ? 0.0 : restored_value);
             }
         }
         g_iExtendedNum = 0;
@@ -259,6 +346,10 @@ restore_limits()
 public concmd_startvote(id, level, cid)
 {
     if(!cmd_access(id, level, cid, 1)) {
+        return PLUGIN_HANDLED;
+    }
+
+    if(g_bVoteInNewRound) {
         return PLUGIN_HANDLED;
     }
 
@@ -315,13 +406,19 @@ public client_putinserver(id)
 {
     if(!is_user_bot(id) && !is_user_hltv(id)) {
         remove_task(TASK_CHANGE_TO_DEFAULT);
+        if(!g_bMapChangeScheduled) {
+            set_pcvar_string(g_pCvars[NEXTMAP], "[not yet voted on]");
+        }
     }
 }
 public client_disconnected(id)
 {
-    new Float:change_time = get_float(CHANGE_TO_DEFAULT);
-    if(change_time > 0.0 && !get_players_num(id)) {
-        set_task(change_time * 60, "task_change_to_default", TASK_CHANGE_TO_DEFAULT);
+    if(!get_players_num()) {
+        new Float:change_time = get_float(CHANGE_TO_DEFAULT);
+        if(change_time > 0.0) {
+            set_task(change_time * 60, "task_change_to_default", TASK_CHANGE_TO_DEFAULT);
+        }
+        sync_nextmap_from_mapcycle();
     }
 }
 public task_change_to_default()
@@ -338,6 +435,7 @@ public task_change_to_default()
 
     log_amx("map changed to default[%s]", default_map);
     set_pcvar_string(g_pCvars[NEXTMAP], default_map);
+    g_bMapChangeScheduled = true;
     intermission();
 }
 public task_checktime()
@@ -375,10 +473,14 @@ public event_deathmsg()
         return 0;
     }
 
+    if(is_vote_started() || is_vote_finished()) {
+        return 0;
+    }
+
     if(get_num(FRAGLIMIT)) {
         if(get_num(FRAGSLEFT) <= get_num(FRAGS_TO_VOTE)) {
             log_amx("[deathmsg]: start vote, fragsleft %d", get_num(FRAGSLEFT));
-            mapm_start_vote(VOTE_BY_SCHEDULER);
+            planning_vote(VOTE_BY_SCHEDULER);
         }
     }
 
@@ -410,14 +512,14 @@ public event_newround()
         return 0;
     }
 
-    new max_rounds = get_num(MAXROUNDS);
-    if(!is_vote_finished() && max_rounds && (g_iTeamScore[0] + g_iTeamScore[1]) >= max_rounds - get_num(ROUNDS_TO_VOTE)) {
-        log_amx("[newround]: start vote, maxrounds %d [%d]", max_rounds, g_iTeamScore[0] + g_iTeamScore[1]);
+    new max_rounds = get_num(MAXROUNDS) - get_num(ROUNDS_TO_VOTE);
+    if(!is_vote_finished() && !is_vote_started() && max_rounds > 0 && (g_iTeamScore[0] + g_iTeamScore[1]) >= max_rounds) {
+        log_amx("[newround]: start vote, maxrounds %d [%d]", get_num(MAXROUNDS), g_iTeamScore[0] + g_iTeamScore[1]);
         mapm_start_vote(VOTE_BY_SCHEDULER);
     }
     
     new win_limit = get_num(WINLIMIT) - get_num(ROUNDS_TO_VOTE);
-    if(!is_vote_finished() && win_limit > 0 && (g_iTeamScore[0] >= win_limit || g_iTeamScore[1] >= win_limit)) {
+    if(!is_vote_finished() && !is_vote_started() && win_limit > 0 && (g_iTeamScore[0] >= win_limit || g_iTeamScore[1] >= win_limit)) {
         log_amx("[newround]: start vote, winlimit %d [CT: %d, T: %d]", win_limit, g_iTeamScore[0], g_iTeamScore[1]);
         mapm_start_vote(VOTE_BY_SCHEDULER);
     }
@@ -439,10 +541,12 @@ public event_restart()
 */
 public event_intermission()
 {
-    if(task_exists(TASK_DELAYED_CHANGE)) {
-        log_amx("double intermission, how?");
+    if(!g_bMapChangeScheduled) {
         return;
     }
+    g_bMapChangeScheduled = false;
+
+    remove_task(TASK_DELAYED_CHANGE);
     new Float:chattime = get_float(CHATTIME);
     set_float(CHATTIME, chattime + 1.0);
     set_task(chattime, "delayed_change", TASK_DELAYED_CHANGE);
@@ -472,8 +576,29 @@ planning_vote(type)
 }
 public mapm_maplist_loaded(Array:maplist, const nextmap[])
 {
-    if(!g_eLastRoundState) {
-        set_pcvar_string(g_pCvars[NEXTMAP], nextmap);
+    new curmap[MAPNAME_LENGTH];
+    get_mapname(curmap, charsmax(curmap));
+
+    if(!equali(curmap, g_sPrevMap)) {
+        copy(g_sPrevMap, charsmax(g_sPrevMap), curmap);
+        copy(g_sCurMap, charsmax(g_sCurMap), curmap);
+
+        mapm_set_vote_finished(false);
+        g_eLastRoundState = LRS_Not;
+        g_bMapChangeScheduled = false;
+        g_bVoteInNewRound = false;
+        remove_task(TASK_DELAYED_CHANGE);
+
+        if(g_fOldTimeLimit > 0.0) {
+            set_float(TIMELIMIT, g_fOldTimeLimit);
+            g_fOldTimeLimit = 0.0;
+        }
+
+        if(get_players_num() == 0) {
+            sync_nextmap_from_mapcycle();
+        } else {
+            set_pcvar_string(g_pCvars[NEXTMAP], "[not yet voted on]");
+        }
     }
 
     if(ArraySize(maplist) == 1) {
@@ -486,18 +611,19 @@ public mapm_maplist_loaded(Array:maplist, const nextmap[])
         g_bOneMapMode = false;
     }
 }
+bool:can_extend()
+{
+    new extended_max = get_num(EXTENDED_MAX);
+    return (extended_max == -1 || g_iExtendedNum < extended_max);
+}
+
 public mapm_can_be_extended(type)
 {
     if(type == VOTE_BY_SCHEDULER_SECOND) {
         return EXTEND_BLOCKED;
     }
 
-    new extended_max = get_num(EXTENDED_MAX);
-
-    if(g_iExtendedNum >= extended_max && extended_max != -1) {
-        return EXTEND_BLOCKED;
-    }
-    return EXTEND_ALLOWED;
+    return can_extend() ? EXTEND_ALLOWED : EXTEND_BLOCKED;
 }
 public mapm_prepare_votelist(type)
 {
@@ -576,9 +702,8 @@ public mapm_vote_finished(const map[], type, total_votes)
     g_bVoteInNewRound = false;
 
     new extend_map_no_votes = get_num(EXTEND_MAP_IF_NO_VOTES);
-    new extended_max = get_num(EXTENDED_MAX);
 
-    new bool:can_be_extend = bool:(equali(map, g_sCurMap) || !total_votes && extend_map_no_votes && g_iExtendedNum < extended_max && extended_max != -1);
+    new bool:can_be_extend = bool:((equali(map, g_sCurMap) && can_extend()) || (!total_votes && extend_map_no_votes && can_extend()));
 
     // map extended
     if(can_be_extend) {
@@ -629,6 +754,7 @@ public mapm_vote_finished(const map[], type, total_votes)
     }
 
     set_pcvar_string(g_pCvars[NEXTMAP], map);
+    g_bMapChangeScheduled = true;
 
     log_amx("[vote_finished]: nextmap is %s.", map);
 
