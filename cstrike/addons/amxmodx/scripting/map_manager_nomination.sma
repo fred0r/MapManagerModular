@@ -419,11 +419,11 @@ public nomlist_handler(id, menu, item)
     trim_bracket(item_name);
     new nominated = nominate_map(id, item_name);
     
-    if(nominated == NOMINATION_REMOVED || get_num(DONT_CLOSE_MENU)) {
+    if(nominated == NOMINATION_REMOVED) {
+        menu_destroy(menu);
+    } else if(get_num(DONT_CLOSE_MENU)) {
         if(nominated == NOMINATION_SUCCESS) {
             format(item_name, charsmax(item_name), "%s[\y*\w]", item_name);
-            menu_item_setname(menu, item, item_name);
-        } else if(nominated == NOMINATION_REMOVED) {
             menu_item_setname(menu, item, item_name);
         }
         menu_display(id, menu);
@@ -657,11 +657,11 @@ public mapslist_handler(id, menu, item)
     trim_bracket(item_name);
     new nominated = nominate_map(id, item_name);
     
-    if(g_iNomMaps[id] < get_num(MAPS_PER_PLAYER) || get_num(DONT_CLOSE_MENU)) {
+    if(nominated == NOMINATION_REMOVED) {
+        menu_destroy(menu);
+    } else if(g_iNomMaps[id] < get_num(MAPS_PER_PLAYER) || get_num(DONT_CLOSE_MENU)) {
         if(nominated == NOMINATION_SUCCESS) {
             format(item_name, charsmax(item_name), "%s[\y*\w]", item_name);
-            menu_item_setname(menu, item, item_name);
-        } else if(nominated == NOMINATION_REMOVED) {
             menu_item_setname(menu, item, item_name);
         }
         menu_display(id, menu, item / 7);
