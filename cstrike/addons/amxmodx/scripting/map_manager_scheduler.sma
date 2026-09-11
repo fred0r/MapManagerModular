@@ -711,6 +711,19 @@ public mapm_analysis_of_results(type, total_votes)
 
     return ABORT_VOTE;
 }
+public mapm_vote_canceled(type)
+{
+    if(type == VOTE_BY_SCHEDULER_SECOND) {
+        map_nomination_set_ignore(false);
+    }
+    if(g_bVoteInNewRound) {
+        g_bVoteInNewRound = false;
+        if(g_fOldTimeLimit > 0.0) {
+            set_float(TIMELIMIT, g_fOldTimeLimit);
+            g_fOldTimeLimit = 0.0;
+        }
+    }
+}
 public mapm_vote_finished(const map[], type, total_votes)
 {
     if(type == VOTE_BY_SCHEDULER_SECOND) {

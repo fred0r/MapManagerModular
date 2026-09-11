@@ -61,6 +61,7 @@ new g_pCvars[Cvars];
 
 new g_iOffset;
 new g_iVoteItems;
+new g_iMaxNormals = MAX_VOTELIST_SIZE;
 new g_iVotes[MAX_VOTELIST_SIZE];
 new g_iTotalVotes;
 new g_iVoted[33];
@@ -299,6 +300,10 @@ public native_push_map_to_votelist(plugin, params)
         arg_type,
         arg_ignore_check
     };
+
+    if(g_iVoteItems >= g_iMaxNormals) {
+        return PUSH_CANCELED;
+    }
 
     if(g_iExternalMaxItems && g_iVoteItems >= g_iExternalMaxItems) {
         return PUSH_CANCELED;
@@ -549,7 +554,15 @@ prepare_vote(type)
 
     new array_size = ArraySize(g_aMapsList);
     new is_current_map_in_array = get_map_index(g_aMapsList, g_sCurMap) != INVALID_MAP_INDEX;
-    new vote_max_items = min(min(get_num(VOTELIST_SIZE), MAX_VOTELIST_SIZE), array_size - is_current_map_in_array);
+
+    // Reserve room for every custom item plus the current map, so the menu
+    // can never exceed MAX_VOTELIST_SIZE (g_iVotes/g_iRandomNums/g_iKeyToIndex size).
+    g_iMaxNormals = MAX_VOTELIST_SIZE - ArraySize(g_aCustomItems) - 1;
+    if(g_iMaxNormals < 0) {
+        g_iMaxNormals = 0;
+    }
+
+    new vote_max_items = min(min(get_num(VOTELIST_SIZE), g_iMaxNormals), array_size - is_current_map_in_array);
 
     if(g_aMenuItems != Invalid_Array) {
         ArrayClear(g_aMenuItems);
@@ -566,11 +579,12 @@ prepare_vote(type)
     ExecuteForward(g_hForwards[PREPARE_VOTELIST], ret, type);
 
     if(ret) {
+        stop_vote();
         return 0;
     }
 
     if(g_iExternalMaxItems) {
-        vote_max_items = g_iExternalMaxItems;
+        vote_max_items = min(g_iExternalMaxItems, g_iMaxNormals);
         g_iExternalMaxItems = 0;
     }
 
@@ -622,6 +636,10 @@ prepare_vote(type)
     while(ArraySize(g_aMenuItems) > MAX_VOTELIST_SIZE) {
         log_amx("WARNING: Check your settings. You have more custom items than can add to vote. (Deleted %d)", ArraySize(g_aMenuItems) - 1);
         ArrayDeleteItem(g_aMenuItems, ArraySize(g_aMenuItems) - 1);
+    }
+
+    if(g_iPushPos >= ArraySize(g_aMenuItems)) {
+        g_iPushPos = ArraySize(g_aMenuItems) - 1;
     }
 
     new size = ArraySize(g_aMenuItems);

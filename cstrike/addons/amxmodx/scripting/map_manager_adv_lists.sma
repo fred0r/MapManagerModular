@@ -86,6 +86,7 @@ public Array:native_get_list_array(plugin, params)
     new item_idx = get_param(arg_item);
     if(item_idx < 0 || item_idx >= ArraySize(g_aActiveLists)) return Invalid_Array;
     new item = ArrayGetCell(g_aActiveLists, item_idx);
+    if(item < 0 || item >= MAX_MAPLISTS) return Invalid_Array;
     return g_aMapLists[item];
 }
 public plugin_cfg()
@@ -147,6 +148,15 @@ public plugin_cfg()
         }
 
         // load maps from file to local list
+        if(i >= MAX_MAPLISTS) {
+            log_amx("WARN: too many maplists (max %d), skipping ^"%s^"", MAX_MAPLISTS, list_info[FileList]);
+            list_info[AnyTime] = false;
+            list_info[ClearOldList] = false;
+            list_info[StartTime] = 25 * 60;
+            list_info[StopTime] = -1;
+            continue;
+        }
+
         g_aMapLists[i] = ArrayCreate(MapStruct, 1);
         
         if(!mapm_load_maplist_to_array(g_aMapLists[i], list_info[FileList])) {
@@ -208,11 +218,11 @@ public task_check_list()
         if(list_info[AnyTime]) {
             found_newlist = true;
         } else if(list_info[StartTime] <= list_info[StopTime]) {
-            if(list_info[StartTime] <= cur_time <= list_info[StopTime]) {
+            if(list_info[StartTime] <= cur_time && cur_time <= list_info[StopTime]) {
                 found_newlist = true;
             }
         } else {
-            if(list_info[StartTime] <= cur_time <= 24 * 60 || cur_time <= list_info[StopTime]) {
+            if(list_info[StartTime] <= cur_time || cur_time <= list_info[StopTime]) {
                 found_newlist = true;
             }
         }
