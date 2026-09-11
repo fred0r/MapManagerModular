@@ -88,6 +88,7 @@ new g_sPrefix[48];
 new g_sCurMap[MAPNAME_LENGTH];
 new bool:g_bMapChangeScheduled;
 new g_sPrevMap[MAPNAME_LENGTH];
+new g_sChangeMap[MAPNAME_LENGTH];
 
 public plugin_init()
 {
@@ -406,7 +407,7 @@ public client_putinserver(id)
 {
     if(!is_user_bot(id) && !is_user_hltv(id)) {
         remove_task(TASK_CHANGE_TO_DEFAULT);
-        if(!g_bMapChangeScheduled) {
+        if(!g_bMapChangeScheduled && !task_exists(TASK_DELAYED_CHANGE)) {
             set_pcvar_string(g_pCvars[NEXTMAP], "[not yet voted on]");
         }
     }
@@ -435,6 +436,7 @@ public task_change_to_default()
 
     log_amx("map changed to default[%s]", default_map);
     set_pcvar_string(g_pCvars[NEXTMAP], default_map);
+    copy(g_sChangeMap, charsmax(g_sChangeMap), default_map);
     g_bMapChangeScheduled = true;
     intermission();
 }
@@ -546,6 +548,18 @@ public event_intermission()
     }
     g_bMapChangeScheduled = false;
 
+    if(!is_map_valid(g_sChangeMap)) {
+        new nextmap[MAPNAME_LENGTH]; get_string(NEXTMAP, nextmap, charsmax(nextmap));
+        if(!is_map_valid(nextmap)) {
+            sync_nextmap_from_mapcycle();
+            get_string(NEXTMAP, nextmap, charsmax(nextmap));
+        }
+        if(!is_map_valid(nextmap)) {
+            return;
+        }
+        copy(g_sChangeMap, charsmax(g_sChangeMap), nextmap);
+    }
+
     remove_task(TASK_DELAYED_CHANGE);
     new Float:chattime = get_float(CHATTIME);
     set_float(CHATTIME, chattime + 1.0);
@@ -553,7 +567,13 @@ public event_intermission()
 }
 public delayed_change()
 {
-    new nextmap[MAPNAME_LENGTH]; get_string(NEXTMAP, nextmap, charsmax(nextmap));
+    new nextmap[MAPNAME_LENGTH]; copy(nextmap, charsmax(nextmap), g_sChangeMap);
+    if(!is_map_valid(nextmap)) {
+        get_string(NEXTMAP, nextmap, charsmax(nextmap));
+        if(!is_map_valid(nextmap)) {
+            return;
+        }
+    }
     set_float(CHATTIME, get_float(CHATTIME) - 1.0);
     engine_changelevel(nextmap);
 }
@@ -586,6 +606,7 @@ public mapm_maplist_loaded(Array:maplist, const nextmap[])
         mapm_set_vote_finished(false);
         g_eLastRoundState = LRS_Not;
         g_bMapChangeScheduled = false;
+        g_sChangeMap[0] = 0;
         g_bVoteInNewRound = false;
         remove_task(TASK_DELAYED_CHANGE);
 
@@ -754,6 +775,7 @@ public mapm_vote_finished(const map[], type, total_votes)
     }
 
     set_pcvar_string(g_pCvars[NEXTMAP], map);
+    copy(g_sChangeMap, charsmax(g_sChangeMap), map);
     g_bMapChangeScheduled = true;
 
     log_amx("[vote_finished]: nextmap is %s.", map);
