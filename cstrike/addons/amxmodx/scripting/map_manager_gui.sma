@@ -273,6 +273,10 @@ load_packs()
 
         parse(text, map, charsmax(map), str_frames, charsmax(str_frames));
 
+        if(!pack_info[Maps]) {
+            continue;
+        }
+
         frames = str_to_num(str_frames);
         if(!frames) {
             frames = 1;

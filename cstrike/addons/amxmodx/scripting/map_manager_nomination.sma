@@ -519,6 +519,8 @@ public clcmd_recent_maps(id)
     if(!has_maps) {
         client_print_color(0, id, "%s^1 %L", g_sPrefix, LANG_PLAYER, "MAPM_NOM_NORECENT_MAPS");
     }
+
+    return PLUGIN_HANDLED;
 }
 show_lists_menu(id)
 {

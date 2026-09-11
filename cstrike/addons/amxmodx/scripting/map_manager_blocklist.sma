@@ -132,6 +132,12 @@ load_blocklist()
         f = fopen(file_path, "rt");
         temp = fopen(temp_file_path, "wt");
 
+        if(!f || !temp) {
+            if(f) fclose(f);
+            if(temp) fclose(temp);
+            return;
+        }
+
         new buffer[40], map[MAPNAME_LENGTH], prefix[MAPNAME_LENGTH], str_count[6], count;
         
         while(!feof(f)) {

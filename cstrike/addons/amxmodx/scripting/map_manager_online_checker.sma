@@ -26,6 +26,7 @@ new g_pCvars[Cvars];
 
 new g_CurrentMap[MapStruct];
 new g_Warnings;
+new Float:g_fMapStartTime;
 
 public plugin_init()
 {
@@ -36,6 +37,7 @@ public plugin_init()
     g_pCvars[CHECK_TIMEOUT] = register_cvar("mapm_online_check_timeout", "120");
 
     get_mapname(g_CurrentMap[Map], charsmax(g_CurrentMap[Map]));
+    g_fMapStartTime = get_gametime();
 }
 
 public plugin_cfg()
@@ -56,7 +58,7 @@ public task_check_online()
     }
 
     new current_online = get_players_num();
-    if(current_online == 0 || get_float(CHECK_TIMEOUT) > get_gametime()) {
+    if(current_online == 0 || get_float(CHECK_TIMEOUT) > (get_gametime() - g_fMapStartTime)) {
         return;
     }
 
