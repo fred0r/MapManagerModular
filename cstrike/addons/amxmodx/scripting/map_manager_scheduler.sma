@@ -84,6 +84,7 @@ new LastRoundState:g_eLastRoundState;
 new IgnoreFlags:g_bIgnoreCheckStart;
 
 new bool:g_bOneMapMode;
+new bool:g_bEmptycycleWarned;
 
 new g_sPrefix[48];
 new g_sCurMap[MAPNAME_LENGTH];
@@ -151,6 +152,14 @@ public plugin_cfg()
 sync_nextmap_from_emptycycle()
 {
     if(!get_num(USE_EMPTYCYCLE)) {
+        return;
+    }
+
+    if(get_float(CHANGE_TO_DEFAULT) > 0.0) {
+        if(!g_bEmptycycleWarned) {
+            g_bEmptycycleWarned = true;
+            log_amx("[emptycycle]: ignored, mapm_change_to_default_map is enabled");
+        }
         return;
     }
 
