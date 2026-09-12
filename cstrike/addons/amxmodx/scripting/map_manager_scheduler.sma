@@ -428,9 +428,8 @@ public task_change_to_default()
         return;
     }
 
-    new default_map[MAPNAME_LENGTH]; get_string(DEFAULT_MAP, default_map, charsmax(default_map));
-
-    if(!is_map_valid(default_map)) {
+    new default_map[MAPNAME_LENGTH];
+    if(!get_default_map(default_map, charsmax(default_map))) {
         return;
     }
 
@@ -439,6 +438,45 @@ public task_change_to_default()
     copy(g_sChangeMap, charsmax(g_sChangeMap), default_map);
     g_bMapChangeScheduled = true;
     intermission();
+}
+bool:get_default_map(output[], len)
+{
+    new list[256]; get_string(DEFAULT_MAP, list, charsmax(list));
+    new rest[256]; copy(rest, charsmax(rest), list);
+    new token[MAPNAME_LENGTH];
+
+    new Array:valid = ArrayCreate(MAPNAME_LENGTH, 1);
+
+    while(rest[0]) {
+        strtok(rest, token, charsmax(token), rest, charsmax(rest), ' ');
+        trim(token);
+
+        if(!token[0] || !valid_map(token)) {
+            continue;
+        }
+        ArrayPushString(valid, token);
+    }
+
+    new count = ArraySize(valid);
+    if(!count) {
+        ArrayDestroy(valid);
+        return false;
+    }
+
+    new current[MAPNAME_LENGTH]; get_mapname(current, charsmax(current));
+    new map[MAPNAME_LENGTH], next = 0;
+
+    for(new i; i < count; i++) {
+        ArrayGetString(valid, i, map, charsmax(map));
+        if(equali(map, current)) {
+            next = (i + 1) % count;
+            break;
+        }
+    }
+
+    ArrayGetString(valid, next, output, len);
+    ArrayDestroy(valid);
+    return true;
 }
 public task_checktime()
 {
