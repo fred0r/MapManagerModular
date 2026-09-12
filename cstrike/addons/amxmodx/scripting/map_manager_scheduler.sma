@@ -65,7 +65,8 @@ enum Cvars {
     FRAGLIMIT,
     FRAGSLEFT,
     NEXTMAP,
-    EXTEND_MAP_IF_NO_VOTES
+    EXTEND_MAP_IF_NO_VOTES,
+    USE_EMPTYCYCLE
 };
 
 new g_pCvars[Cvars];
@@ -107,6 +108,7 @@ public plugin_init()
 
     g_pCvars[CHANGE_TO_DEFAULT] = register_cvar("mapm_change_to_default_map", "0"); // minutes, 0 - disable
     g_pCvars[DEFAULT_MAP] = register_cvar("mapm_default_map", "de_dust2");
+    g_pCvars[USE_EMPTYCYCLE] = register_cvar("mapm_use_emptycycle", "0"); // 0 - disable, 1 - enable
 
     g_pCvars[EXTENDED_TYPE] = register_cvar("mapm_extended_type", "0"); // 0 - minutes, 1 - rounds
     g_pCvars[EXTENDED_MAX] = register_cvar("mapm_extended_map_max", "3");
@@ -146,8 +148,12 @@ public plugin_cfg()
     mapm_get_prefix(g_sPrefix, charsmax(g_sPrefix));
 }
 
-sync_nextmap_from_mapcycle()
+sync_nextmap_from_emptycycle()
 {
+    if(!get_num(USE_EMPTYCYCLE)) {
+        return;
+    }
+
     new dir[256], path[256];
     get_configsdir(dir, charsmax(dir));
 
@@ -156,23 +162,9 @@ sync_nextmap_from_mapcycle()
         dir[--len] = 0;
     }
 
-    path[0] = 0;
+    format(path, charsmax(path), "%s/emptycycle.txt", dir);
 
-    while(len > 0) {
-        format(path, charsmax(path), "%s/mapcycle.txt", dir);
-        if(file_exists(path)) {
-            break;
-        }
-        path[0] = 0;
-        while(len > 0 && dir[len - 1] != '/') {
-            len--;
-        }
-        if(len > 0) {
-            dir[--len] = 0;
-        }
-    }
-
-    if(!path[0]) {
+    if(!file_exists(path)) {
         return;
     }
 
@@ -211,7 +203,7 @@ sync_nextmap_from_mapcycle()
 
     if(nextmap[0] && is_map_valid(nextmap)) {
         set_pcvar_string(g_pCvars[NEXTMAP], nextmap);
-        log_amx("[sync_nextmap]: mapcycle.txt nextmap set to %s", nextmap);
+        log_amx("[sync_nextmap]: emptycycle.txt nextmap set to %s", nextmap);
     }
 }
 
@@ -419,7 +411,7 @@ public client_disconnected(id)
         if(change_time > 0.0) {
             set_task(change_time * 60, "task_change_to_default", TASK_CHANGE_TO_DEFAULT);
         }
-        sync_nextmap_from_mapcycle();
+        sync_nextmap_from_emptycycle();
     }
 }
 public task_change_to_default()
@@ -589,7 +581,7 @@ public event_intermission()
     if(!is_map_valid(g_sChangeMap)) {
         new nextmap[MAPNAME_LENGTH]; get_string(NEXTMAP, nextmap, charsmax(nextmap));
         if(!is_map_valid(nextmap)) {
-            sync_nextmap_from_mapcycle();
+            sync_nextmap_from_emptycycle();
             get_string(NEXTMAP, nextmap, charsmax(nextmap));
         }
         if(!is_map_valid(nextmap)) {
@@ -654,7 +646,7 @@ public mapm_maplist_loaded(Array:maplist, const nextmap[])
         }
 
         if(get_players_num() == 0) {
-            sync_nextmap_from_mapcycle();
+            sync_nextmap_from_emptycycle();
         } else {
             set_pcvar_string(g_pCvars[NEXTMAP], "[not yet voted on]");
         }

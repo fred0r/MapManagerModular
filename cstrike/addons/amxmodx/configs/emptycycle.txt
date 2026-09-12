@@ -1,0 +1,14 @@
+; Map Manager nextmap cycle file.
+;
+; Format: one map name per line. Blank lines and lines starting with ';' or '//'
+; are ignored. The next map is the first entry after the current map; if the
+; current map is not listed, the first entry is used.
+;
+; Read only when "mapm_use_emptycycle 1" is set. This file must exist in the
+; AMXX config directory:
+;   addons/amxmodx/configs/emptycycle.txt
+;
+; Example:
+; de_dust2
+; de_inferno
+; de_nuke
